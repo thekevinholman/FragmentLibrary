@@ -1,0 +1,91 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  This fragment includes a (provide description for what this MP fragment does HERE)
+
+Version: 1.2
+LastModified: 4-Nov-2017
+%%
+
+In this fragment you need to replace:
+(ADD OR REMOVE THESE AS NEEDED)
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##RegKeyPath##
+  ##RegKeyPathSanitizeForUseInElementID##
+  ##RegValuePath##
+  ##RegValuePathSanitizeForUseInElementID##
+  ##RegValueExpression##
+  ##ServiceName##
+  ##ProcessName##
+  ##WMIQuery##
+  ##UniqueID##
+  ##ObjectName##
+  ##InstanceName##
+  ##CounterName##
+  ##CounterNameSanitizeForUseInElementID##
+  ##DeviceTypeName##
+  ##OID##
+  ##ThresholdIntegerAboveBad##
+  ##ThresholdIntegerBelowGood##
+  ##LogFileDirectory##
+  ##LogFilePattern##
+  ##StringToMatch##
+  ##AppFilePath##
+  ##ShellCommand##
+  
+
+This fragment depends on references:
+(REMOVE ANY THAT DONT BELONG)
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"	
+  RequiredReference: Alias="Perf", ID="System.Performance.Library"
+  RequiredReference: Alias="MSDL", ID="Microsoft.SystemCenter.DataWarehouse.Library"
+  RequiredReference: Alias="MSIL", ID="Microsoft.SystemCenter.InstanceGroup.Library"
+  RequiredReference: Alias="MSPL", ID="Microsoft.SystemCenter.ProcessMonitoring.Library"
+  RequiredReference: Alias="SNL", ID="System.NetworkManagement.Library"	
+  RequiredReference: Alias="SAL", ID="System.ApplicationLog.Library"
+  RequiredReference: Alias="MUL", ID="Microsoft.Unix.Library"
+  RequiredReference: Alias="MSWL", ID="Microsoft.SystemCenter.WSManagement.Library"
+  RequiredReference: Alias="MUSL", ID="Microsoft.Unix.ShellCommand.Library"	
+
+@@Author=Kevin Holman@@
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+      </ClassTypes>
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+    </Discoveries>
+    <Rules>	
+    </Rules>
+    <Monitors>	
+    </Monitors>
+    <Recoveries>
+    </Recoveries>	
+  </Monitoring>
+  <Presentation>
+    <Views>
+    </Views>
+    <Folders>
+    </Folders>
+    <FolderItems>
+    </FolderItems>
+    <StringResources>
+    </StringResources>	
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>  
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks>   
+</ManagementPackFragment>

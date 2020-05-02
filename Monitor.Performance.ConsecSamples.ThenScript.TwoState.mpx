@@ -1,0 +1,335 @@
+<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A custom MONITORTYPE and MONITOR for performance data which checks a threshold first using native modules then runs a script to gather additional output.
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - needs to be your perf counter name, with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  For instance, "% Processor Time" would be cleaned up to "PercentProcessorTime"
+  In the event the monitor threshold is met, a script will be executed to gather additional propertybag data for the monitor context and alert description
+
+Version: 1.4
+LastModified: 12-Nov-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##ObjectName##
+  ##InstanceName##
+  ##CounterName##
+  ##Threshold##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  RequiredReference: Alias="Perf", ID="System.Performance.Library"
+
+@@Author=Kevin Holman@@
+--> 
+  <TypeDefinitions>
+    <MonitorTypes>
+      <UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.MonitorType" Accessibility="Public">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="ConditionTrue" />
+          <MonitorTypeState ID="ConditionFalse" />
+        </MonitorTypeStates>
+        <Configuration>
+          <IncludeSchemaTypes>
+            <SchemaType>Windows!Microsoft.Windows.PowerShellSchema</SchemaType>
+          </IncludeSchemaTypes>
+          <xsd:element name="ComputerName" type="xsd:string" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="CounterName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ObjectName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="InstanceName" type="xsd:string" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="AllInstances" type="xsd:boolean" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Frequency" type="xsd:unsignedInt" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ScaleBy" type="xsd:double" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="Threshold" type="xsd:double" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="Direction" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="NumSamples" type="xsd:unsignedInt" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ScriptName" type="NonNullString" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ScriptBody" type="NonNullString" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Parameters" type="NamedParametersType" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="Frequency" ParameterType="int" Selector="$Config/Frequency$" />
+          <OverrideableParameter ID="Threshold" ParameterType="double" Selector="$Config/Threshold$" />
+          <OverrideableParameter ID="NumSamples" ParameterType="int" Selector="$Config/NumSamples$" />
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DSPerf" TypeID="Perf!System.Performance.DataProvider">
+              <ComputerName>$Config/ComputerName$</ComputerName>
+              <CounterName>$Config/CounterName$</CounterName>
+              <ObjectName>$Config/ObjectName$</ObjectName>
+              <InstanceName>$Config/InstanceName$</InstanceName>
+              <AllInstances>$Config/AllInstances$</AllInstances>
+              <Frequency>$Config/Frequency$</Frequency>
+              <ScaleBy>$Config/ScaleBy$</ScaleBy>
+            </DataSource>
+            <ProbeAction ID="ProbePS" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagTriggerOnlyProbe">
+              <ScriptName>$Config/ScriptName$</ScriptName>
+              <ScriptBody>$Config/ScriptBody$</ScriptBody>
+              <Parameters>  <!-- We have to pass all these parameters into the script in order to be able to output them as propertybags into the monitor state output context -->
+			    <Parameter>
+                  <Name>ObjectName</Name>
+                  <Value>$Data/ObjectName$</Value>
+                </Parameter>
+			    <Parameter>
+                  <Name>CounterName</Name>
+                  <Value>$Data/CounterName$</Value>
+                </Parameter>
+			    <Parameter>
+                  <Name>InstanceName</Name>
+                  <Value>$Data/InstanceName$</Value>
+                </Parameter>
+			    <Parameter>
+                  <Name>SampleValue</Name>
+                  <Value>$Data/SampleValue$</Value>
+                </Parameter>
+			    <Parameter>
+                  <Name>NumSamples</Name>
+                  <Value>$Data/Value$</Value>
+                </Parameter>
+		      </Parameters>
+              <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+            </ProbeAction>			
+            <ConditionDetection ID="CDThreshold" TypeID="Perf!System.Performance.ConsecutiveSamplesCondition">
+              <Threshold>$Config/Threshold$</Threshold>
+              <Direction>$Config/Direction$</Direction>
+            </ConditionDetection>
+            <ConditionDetection ID="CDSufficientSamples" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="Double">Value</XPathQuery>
+                  </ValueExpression>
+                  <Operator>GreaterEqual</Operator>
+                  <ValueExpression>
+                    <Value Type="Double">$Config/NumSamples$</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="CDInSufficientSamples" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="Double">Value</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Less</Operator>
+                  <ValueExpression>
+                    <Value Type="Double">$Config/NumSamples$</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="CDProbePSBad" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Equal</Operator>
+                  <ValueExpression>
+                    <Value Type="String">BAD</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+            </ConditionDetection>
+	      </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="ConditionTrue">
+			<Node ID="CDProbePSBad">
+			  <Node ID="ProbePS">
+                <Node ID="CDSufficientSamples">
+                  <Node ID="CDThreshold">
+                    <Node ID="DSPerf" />
+                  </Node>
+                </Node>
+              </Node>
+            </Node>
+			</RegularDetection>
+            <RegularDetection MonitorTypeStateID="ConditionFalse">
+              <Node ID="CDInSufficientSamples">
+                <Node ID="CDThreshold">
+                  <Node ID="DSPerf" />
+                </Node>
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>
+    </MonitorTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.PerformanceState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.MonitorType" ConfirmDelivery="false">
+        <Category>PerformanceHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>MatchMonitorHealth</AlertSeverity>
+		  <AlertParameters>
+            <AlertParameter1>$Data/Context/Property[@Name='Object Name']$</AlertParameter1>
+            <AlertParameter2>$Data/Context/Property[@Name='Counter Name']$</AlertParameter2>
+            <AlertParameter3>$Data/Context/Property[@Name='Instance Name']$</AlertParameter3>
+            <AlertParameter4>$Data/Context/Property[@Name='Last Sampled Value']$</AlertParameter4>
+            <AlertParameter5>$Data/Context/Property[@Name='Number of Samples']$</AlertParameter5>
+            <AlertParameter6>$Data/Context/Property[@Name='Processes by CPU']$</AlertParameter6>  <!-- This line is optional it is an example of your custom script propertybag output-->
+            <AlertParameter7>$Data/Context/Property[@Name='Total Cores']$</AlertParameter7>  <!-- This line is optional it is an example of your custom script propertybag output-->			
+          </AlertParameters>		  
+        </AlertSettings>		
+        <OperationalStates>
+          <OperationalState ID="ConditionTrue" MonitorTypeStateID="ConditionTrue" HealthState="Warning" />
+          <OperationalState ID="ConditionFalse" MonitorTypeStateID="ConditionFalse" HealthState="Success" />
+        </OperationalStates>
+        <Configuration>
+          <ComputerName>.</ComputerName>
+          <CounterName>##CounterName##</CounterName>
+          <ObjectName>##ObjectName##</ObjectName>
+          <InstanceName>##InstanceName##</InstanceName>
+          <AllInstances>false</AllInstances>
+          <Frequency>60</Frequency>
+          <Threshold>##Threshold##</Threshold>
+          <Direction>greater</Direction>
+          <NumSamples>3</NumSamples>
+          <ScriptName>##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor.ps1</ScriptName>
+          <ScriptBody>#=================================================================================
+#  Generic monitoring script to input perf data and gather additional propertybags for alert enrichment
+#
+#  Kevin Holman
+#  v1.1
+#=================================================================================
+param ($ObjectName, $CounterName, $InstanceName, $SampleValue, $NumSamples)
+
+#=================================================================================
+# Constants section - modify stuff here:
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor.ps1"
+#=================================================================================
+
+# Gather the start time of the script
+$StartTime = Get-Date
+
+# Load MomScript API and PropertyBag function 
+$momapi = new-object -comObject 'MOM.ScriptAPI'
+$bag = $momapi.CreatePropertyBag()
+
+#Set variables to be used in logging events
+$whoami = whoami
+
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,1234,0, "Starting monitor script.   Running as ($whoami)")
+
+
+#=================================================================================
+# Start Main section of script to gather additional data for alert description
+# This example will gather the processes that are consuming the most CPU
+
+# Set variables to empty
+[int]$cores = 0
+[int]$totalcores = 0
+[string]$TopProcessCPUString = @()
+
+#Count Logical CPU
+foreach ($proc in (Get-WmiObject Win32_Processor))
+{
+  if ($proc.NumberOfLogicalProcessors -eq $null)
+  {
+    [int]$cores++
+  }
+  else
+  {
+    $cores = $proc.NumberOfLogicalProcessors
+    $totalcores += $cores
+  }
+}
+
+#Get process data for propertybag
+$TopProcs = (Get-Counter "\Process(*)\% Processor Time").CounterSamples | select InstanceName,CookedValue | sort CookedValue -Descending | Select -first 7
+ForEach ($TopProc in $TopProcs)
+{
+  $ProcName = $TopProc.InstanceName
+  IF ($ProcName -ne "_total" -and $ProcName -ne "idle")
+  {
+    #Make the CPU percent realistic by divinding by number of cores and look pretty with fixed 2 decimal places
+	$CPUPercent = [Math]::round(($TopProc.CookedValue/$totalcores),2)
+    $CPUPercent = "{0:N2}" -f $CPUPercent
+    
+	#We need to define $TopProcessCPUString as a string and add text to it with a carriage return in a FOR loop because we cannot output an array to a propertybag or SCOM will choke
+	$TopProcessCPUString += "$CPUPercent, $ProcName `r`n"
+  }
+}
+# End main section of script to gather additional data for alert description
+#=================================================================================
+
+
+# Output Result = BAD to ensure our final condition detection will work.  This should be left alone
+$bag.AddValue("Result","BAD")
+
+# Output our standard performance data in propertybags to be able to add them to the alert description
+$bag.AddValue("Object Name",$ObjectName)
+$bag.AddValue("Counter Name",$CounterName)
+$bag.AddValue("Instance Name",$InstanceName)
+$bag.AddValue("Last Sampled Value",$SampleValue)
+$bag.AddValue("Number of Samples",$NumSamples)
+
+# Output your custom propertybags you gather from the script
+$bag.AddValue("Processes by CPU",$TopProcessCPUString)
+$bag.AddValue("Total Cores",$totalcores)
+
+# Output all bags
+$bag
+
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,1234,0,"Ending monitor script. Total runtime ($ScriptTime) seconds.")
+</ScriptBody>
+          <Parameters></Parameters>
+          <TimeoutSeconds>120</TimeoutSeconds>
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>  
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor">
+          <Name>##CompanyID## ##AppName## ##CounterName## Perf Then Script Monitor</Name>
+          <Description></Description>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor" SubElementID="ConditionTrue">
+          <Name>Bad Condition Detected</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor" SubElementID="ConditionFalse">
+          <Name>Healthy Condition Detected</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.ThenScript.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##CounterName## has breached a threshold</Name>
+          <Description>Object Name: {0}
+Counter Name: {1}
+Instance Name: {2}
+Last Sampled Value: {3}
+Number of Samples: {4}
+Total Cores: {6}
+Processes consuming the most CPU:
+{5}</Description>  <!-- The last alert description property is optional it would be from your custom script or you can add more -->
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

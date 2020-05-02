@@ -1,0 +1,366 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!-- 
+%%
+Description:
+  Combo fragment to discover a clustered application
+  Class, Registry Seed Discovery, Clustered App Discovery, Folder, Views
+  A Seed CLASS and DISCOVERY based on existence of a Registry KEY
+  A Clustered App CLASS and DISCOVERY based on PowerShell Script
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  RegKeyPath - this is for your SEED class - needs to be in the format of "SYSTEM\CurrentControlSet\Services\CcmExec" as HKLM is assumed
+  
+Version: 1.0
+LastModified: 7-Dec-2018
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##RegKeyPath##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"  
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="MSIL", ID="Microsoft.SystemCenter.InstanceGroup.Library" 
+  
+@@Author=Kevin Holman@@
+-->
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.Seed.Class" Accessibility="Public" Abstract="false" Base="Windows!Microsoft.Windows.LocalApplication" Hosted="true" Singleton="false" Extension="false">
+          <Property ID="IsVirtualNode" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+        </ClassType>
+        <ClassType ID="##CompanyID##.##AppName##.Clustered.Class" Accessibility="Public" Abstract="false" Base="Windows!Microsoft.Windows.LocalApplication" Hosted="true" Singleton="false" Extension="false">
+          <Property ID="ClResourceName" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+		  <Property ID="ClResourceGroupName" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+        </ClassType>	
+        <ClassType ID="##CompanyID##.##AppName##.ComputersAndWatchers.Group" Accessibility="Public" Abstract="false" Base="MSIL!Microsoft.SystemCenter.InstanceGroup" Hosted="false" Singleton="true" Extension="false" />		
+      </ClassTypes>	  
+    </EntityTypes>	  
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.Seed.Class.Discovery" Enabled="true" Target="Windows!Microsoft.Windows.Server.Computer" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.Seed.Class">
+            <Property PropertyID="IsVirtualNode" />
+          </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.FilteredRegistryDiscoveryProvider">
+          <ComputerName>$Target/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</ComputerName>
+          <RegistryAttributeDefinitions>
+            <RegistryAttributeDefinition>
+              <AttributeName>SeedRegKeyExists</AttributeName>
+              <Path>##RegKeyPath##</Path>
+              <PathType>0</PathType>
+              <!-- 0=regKey 1=regValue -->
+              <AttributeType>0</AttributeType>
+              <!-- 0=CheckIfExists (boolean) 1=treat data as string 2=treat data as INT-->
+            </RegistryAttributeDefinition>
+          </RegistryAttributeDefinitions>
+          <Frequency>14400</Frequency>
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.Seed.Class"]$</ClassId>
+          <InstanceSettings>
+            <Settings>
+              <Setting>
+                <Name>$MPElement[Name="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Name>
+                <Value>$Target/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="System!System.Entity"]/DisplayName$</Name>
+                <Value>$Target/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="##CompanyID##.##AppName##.Seed.Class"]/IsVirtualNode$</Name>
+                <Value>$Target/Property[Type="Windows!Microsoft.Windows.Server.Computer"]/IsVirtualNode$</Value>
+              </Setting>
+            </Settings>
+          </InstanceSettings>
+          <Expression>
+            <SimpleExpression>
+              <ValueExpression>
+                <XPathQuery Type="Boolean">Values/SeedRegKeyExists</XPathQuery>
+              </ValueExpression>
+              <Operator>Equal</Operator>
+              <ValueExpression>
+                <Value Type="Boolean">true</Value>
+              </ValueExpression>
+            </SimpleExpression>
+          </Expression>
+        </DataSource>
+      </Discovery>
+      <Discovery ID="##CompanyID##.##AppName##.Clustered.Class.Discovery" Target="##CompanyID##.##AppName##.Seed.Class" Enabled="true" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+	      <DiscoveryClass TypeID="##CompanyID##.##AppName##.Clustered.Class">
+		    <Property PropertyID="ClResourceName"/>
+			<Property PropertyID="ClResourceGroupName"/>
+          </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>14400</IntervalSeconds>
+          <SyncTime />
+          <ScriptName>##CompanyID##.##AppName##.Clustered.Class.Discovery.ps1</ScriptName>
+          <ScriptBody>
+#=================================================================================
+#  Discover Clustered Application
+#  This discovery runs against a seed class target to find a specific clustered app
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param($SourceId,$ManagedEntityId,$ComputerName,$IsVirtualNode)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# $ComputerName = "computername.domain.com"
+# $IsVirtualNode = $true
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.Clustered.Class.Discovery.ps1"
+$EventID = "9051"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami). `n ComputerName: ($ComputerName) `n IsVirtualNode: ($IsVirtualNode)")
+#=================================================================================
+	
+
+# Discovery Script section - Discovery scripts get this
+#=================================================================================
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#=================================================================================	
+
+
+# Begin MAIN script section
+#=================================================================================
+#Only continue if this is a cluster virtual
+IF (!($IsVirtualNode))
+{
+	# Log an event to end discovery
+	$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n IsVirtualNode = false.  Do not return discovery data.")
+}
+ELSE
+{
+	# Log an event to continue discovery
+	$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n IsVirtualNode = true. `n We will continue discovery on this cluster object. `n ComputerName: ($ComputerName)") 	
+
+    # ====== BEGIN your custom filter for clustered app ======
+	# Now we need to create a filter so that only the app we are looking for is discovered
+	# This might be using a cluster powershell filter, WMI query,  or looking for a file or process or however makes sense for your app
+	# This example will discover any cluster resource with a NetworkName object type, that has a DNS name value that matches the target computer as an example only
+
+	# Import cluster PS module
+	Import-Module FailoverClusters
+
+	#Get all the cluster resources on this cluster
+	[array]$ClResources = Get-ClusterResource | where {$_.ResourceType.Name -eq "Network Name"}
+
+	FOREACH ($ClResource in $ClResources)
+	{
+		#Get the Cluster Resource Name
+		[string]$ClResourceName = $ClResource.Name
+		#Get the NetBIOS name from the ComputerName passed as a param to the script
+		[string]$ComputerNameSplit = ($ComputerName.Split("."))[0]
+
+		#Get the DNS name from the cluster network name object
+		$ClDNSNameObj = $ClResource | Get-ClusterParameter -Name DnsName
+		[string]$ClDNSName = $ClDNSNameObj.Value
+		#Get only the NetBIOS name for comparison
+		[string]$ClDNSNameSplit = ($ClDNSName.Split("."))[0]
+
+		IF ($ComputerNameSplit -eq $ClDNSNameSplit)
+		{
+		  #Discover stuff
+		  [string]$ClResourceGroupName = $ClResource.OwnerGroup.Name
+		  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Adding discovery data for: `n ComputerName () `n Cluster Resource Name: ($ClResourceName) `n Cluster Resource Group Name: ($ClResourceGroupName)")
+	  
+		  $instance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.Clustered.Class']$")
+		  $instance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $ComputerName)
+		  $instance.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$", $ComputerName)
+		  $instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.Clustered.Class']/ClResourceName$", $ClResourceName)
+		  $instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.Clustered.Class']/ClResourceGroupName$", $ClResourceGroupName)
+		  $DiscoveryData.AddInstance($instance)		  
+		}
+	}
+    # ====== END your custom filter for clustered app ======
+}
+
+# Return Discovery Items Normally           
+$DiscoveryData
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+</ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>SourceID</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ManagedEntityID</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ComputerName</Name>
+              <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>IsVirtualNode</Name>
+              <Value>$Target/Property[Type="##CompanyID##.##AppName##.Seed.Class"]/IsVirtualNode$</Value>
+            </Parameter>			
+          </Parameters>
+          <TimeoutSeconds>300</TimeoutSeconds>
+        </DataSource>
+      </Discovery>
+      <Discovery ID="##CompanyID##.##AppName##.ComputersAndWatchers.Group.Discovery" Enabled="true" Target="##CompanyID##.##AppName##.ComputersAndWatchers.Group" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryRelationship TypeID="MSIL!Microsoft.SystemCenter.InstanceGroupContainsEntities" />
+        </DiscoveryTypes>
+        <DataSource ID="GroupPopulationDataSource" TypeID="SC!Microsoft.SystemCenter.GroupPopulator">
+          <RuleId>$MPElement$</RuleId>
+          <GroupInstanceId>$MPElement[Name="##CompanyID##.##AppName##.ComputersAndWatchers.Group"]$</GroupInstanceId>
+          <MembershipRules>
+            <MembershipRule>
+			  <MonitoringClass>$MPElement[Name="Windows!Microsoft.Windows.Computer"]$</MonitoringClass>
+			  <RelationshipClass>$MPElement[Name="MSIL!Microsoft.SystemCenter.InstanceGroupContainsEntities"]$</RelationshipClass>
+			  <Expression>
+				<Contains>
+				  <MonitoringClass>$MPElement[Name="##CompanyID##.##AppName##.Clustered.Class"]$</MonitoringClass>
+				</Contains>
+			  </Expression>
+			</MembershipRule>
+			<MembershipRule>
+			  <MonitoringClass>$MPElement[Name="SC!Microsoft.SystemCenter.HealthServiceWatcher"]$</MonitoringClass>
+			  <RelationshipClass>$MPElement[Name="MSIL!Microsoft.SystemCenter.InstanceGroupContainsEntities"]$</RelationshipClass>
+			  <Expression>
+				<Contains>
+				  <MonitoringClass>$MPElement[Name="SC!Microsoft.SystemCenter.HealthService"]$</MonitoringClass>
+				  <Expression>
+				    <Contained>
+					  <MonitoringClass>$MPElement[Name="Windows!Microsoft.Windows.Computer"]$</MonitoringClass>
+					  <Expression>
+						<Contained>
+						  <MonitoringClass>$Target/Id$</MonitoringClass>
+						</Contained>
+					  </Expression>
+					</Contained>
+				  </Expression>
+				</Contains>
+			  </Expression>
+			</MembershipRule> 
+          </MembershipRules>
+        </DataSource>
+      </Discovery>	  
+    </Discoveries>
+  </Monitoring>
+  <Presentation>
+    <Views>
+      <View ID="##CompanyID##.##AppName##.Seed.StateView" Accessibility="Internal" Enabled="true" Target="##CompanyID##.##AppName##.Seed.Class" TypeID="SC!Microsoft.SystemCenter.StateViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria />
+      </View>
+      <View ID="##CompanyID##.##AppName##.Clustered.AlertView" Accessibility="Internal" Enabled="true" Target="##CompanyID##.##AppName##.Clustered.Class" TypeID="SC!Microsoft.SystemCenter.AlertViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria>
+          <ResolutionState>
+            <StateRange Operator="NotEquals">255</StateRange>
+          </ResolutionState>
+        </Criteria>
+      </View>
+      <View ID="##CompanyID##.##AppName##.Clustered.StateView" Accessibility="Internal" Enabled="true" Target="##CompanyID##.##AppName##.Clustered.Class" TypeID="SC!Microsoft.SystemCenter.StateViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria />
+      </View>
+    </Views>
+    <Folders>
+      <Folder ID="##CompanyID##.##AppName##.Root.Folder" Accessibility="Internal" ParentFolder="SC!Microsoft.SystemCenter.Monitoring.ViewFolder.Root" />
+    </Folders>
+    <FolderItems>
+      <FolderItem ElementID="##CompanyID##.##AppName##.Seed.StateView" ID="##CompanyID##.##AppName##.Seed.StateView.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+      <FolderItem ElementID="##CompanyID##.##AppName##.Clustered.AlertView" ID="##CompanyID##.##AppName##.Clustered.AlertView.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+      <FolderItem ElementID="##CompanyID##.##AppName##.Clustered.StateView" ID="##CompanyID##.##AppName##.Clustered.StateView.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+    </FolderItems> 
+  </Presentation>   
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.Class">
+          <Name>##CompanyID## ##AppName## Class</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.Class" SubElementID="ClResourceName">
+          <Name>Cluster Resource Name</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.Class" SubElementID="ClResourceGroupName">
+          <Name>Cluster Resource Group Name</Name>
+        </DisplayString>		
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.Class.Discovery">
+          <Name>##CompanyID## ##AppName## Class Discovery</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Seed.Class">
+          <Name>##CompanyID## ##AppName## Seed Class</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Seed.Class" SubElementID="IsVirtualNode">
+          <Name>IsVirtualNode</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Seed.Class.Discovery">
+          <Name>##CompanyID## ##AppName## Seed Class Discovery</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.ComputersAndWatchers.Group">
+          <Name>##CompanyID## ##AppName## Computers and Health Watchers Group</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.ComputersAndWatchers.Group.Discovery">
+          <Name>##CompanyID## ##AppName## Computers and Health Watchers Group Discovery</Name>
+          <Description>This discovery populates a group of Windows Computer and Health Service Watcher objects that contain a ##CompanyID##.##AppName##.Clustered.Class instance.</Description>
+        </DisplayString>			
+        <DisplayString ElementID="##CompanyID##.##AppName##.Root.Folder">
+          <Name>##CompanyID## - ##AppName##</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Seed.StateView">
+          <Name>##AppName## Seed</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.AlertView">
+          <Name>##AppName## Alerts</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Clustered.StateView">
+          <Name>##AppName## State</Name>
+        </DisplayString>
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks> 
+</ManagementPackFragment>

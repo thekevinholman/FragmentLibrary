@@ -1,0 +1,104 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A Rule to alert on a specific string on a new line in an ASCII Text Log file
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "CountFilesInFolder"  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem     
+  LogFileDirectory - is the folder path that contains the log files.  Example:  C:\logs
+  LogFilePattern - is the filename of the log file or a wildcard to match multiple files.  Example:  MyAppLog.txt or *.txt
+  StringToMatch - is the string you want to find in a new line added to the log.  Example:  error
+
+Version: 1.3
+LastModified: 13-Aug-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##  
+  ##ClassID##
+  ##LogFileDirectory##
+  ##LogFilePattern##
+  ##StringToMatch##
+
+This fragment depends on references:
+  RequiredReference: Alias="Health", ID="System.Health.Library"	
+  RequiredReference: Alias="SAL", ID="System.ApplicationLog.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Alert.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Alert</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="SAL!System.ApplicationLog.GenericLog.FilteredEventProvider">
+            <LogFileDirectory>##LogFileDirectory##</LogFileDirectory>
+            <LogFilePattern>##LogFilePattern##</LogFilePattern>
+            <LogIsUTF8>false</LogIsUTF8>
+            <Expression>
+              <RegExExpression>
+                <ValueExpression>
+                  <XPathQuery Type="String">Params/Param[1]</XPathQuery>
+                </ValueExpression>
+                <Operator>ContainsSubstring</Operator>  <!-- Common options for RegExExpression Operator are "MatchesWildcard" "ContainsSubstring" "MatchesRegularExpression" "DoesNotMatchWildcard" "DoesNotContainSubstring" "DoesNotMatchRegularExpression" -->
+                <Pattern>##StringToMatch##</Pattern>  <!-- This can be a string value to match on or a Regex expression or a wildcard with #?*\ -->
+              </RegExExpression>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>  <!--0=Low 1=Medium 2=High -->
+            <Severity>1</Severity>  <!--0=Information 1=Warning 2=Critical -->
+            <AlertOwner />
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.LogFile.Alert.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/EventData/DataItem/LogFileDirectory$</AlertParameter1>
+              <AlertParameter2>$Data/EventData/DataItem/LogFileName$</AlertParameter2>
+              <AlertParameter3>$Data/EventData/DataItem/Params/Param[1]$</AlertParameter3>
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data/LoggingComputer$</SuppressionValue>
+              <SuppressionValue>$Data/Params/Param[1]$</SuppressionValue>
+            </Suppression>
+            <Custom1 />
+            <Custom2 />
+            <Custom3 />
+            <Custom4 />
+            <Custom5 />
+            <Custom6 />
+            <Custom7 />
+            <Custom8 />
+            <Custom9 />
+            <Custom10 />
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Alert.Rule.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Alert.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Logfile Alert Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Alert.Rule.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Logfile String Match</Name>
+          <Description>A matching error string of - ##StringToMatch## - was found in the log file:
+Logfile Directory: {0} 
+Logfile Name: {1} 
+Message: {2}</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

@@ -1,0 +1,209 @@
+<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A rule that runs a PowerShell script and copies an embedded file within the MP to a chosen folder on the agent
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "CopyAgentFile" 
+  DestinationFilePath - is the path that you want your embedded file to be copied to on the agent filesystem such as "C:\SCOMTempFiles" or "%systemroot%\temp"
+  FileName - is the EXACT name of the file that you will embed into the management pack solution
+
+Version: 1.0
+LastModified: 18-Oct-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##DestinationFilePath##
+  ##FileName##
+  
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+-->
+  <TypeDefinitions>
+    <ModuleTypes>
+      <WriteActionModuleType ID="##CompanyID##.##AppName##.##UniqueID##.CopyFile.WA" Accessibility="Public" Batching="false">
+        <Configuration>
+          <xsd:element name="FileSourcePath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="FileDestinationPath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <WriteAction ID="WA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+                <ScriptName>##CompanyID##.##AppName##.##UniqueID##.CopyFile.WA.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  SCOM PowerShell script to distribute and copy a file to a specific location
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param ([string]$FileSourcePath,[string]$FileDestinationPath)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# [string]$FileSourcePath = "C:\Program Files\Microsoft Monitoring Agent\Agent\Health Service State\Resources\467\FileName.zip"
+# [string]$FileDestinationPath = "C:\SCOMTempFiles"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.CopyFile.WA.ps1"
+$EventID = "5050"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nRunning as ($whoami). `nFileSourcePath: ($FileSourcePath). `nFileDestinationPath: ($FileDestinationPath)")
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+# If FileDestinationPath subdir does not exist create it
+$Error.Clear()
+[boolean]$DirExists = Test-Path -Path "$FileDestinationPath"
+IF ($Error)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nERROR checking for path at: ($FileDestinationPath).  Error is ($Error)")
+}
+
+IF (!($DirExists))
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nDestination folder does not exist. `nCreating folder path at: ($FileDestinationPath).")
+  $Error.Clear()
+  New-Item -ItemType:Directory -Path:"$FileDestinationPath"
+}
+IF ($Error)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nERROR creating directory for path at: ($FileDestinationPath).  Error is ($Error)")
+  EXIT
+}
+
+# Copy File to FileDestinationPath
+$FilePathArr = $FileSourcePath.Split("\")
+$FileName = $FilePathArr[$FilePathArr.Length -1]
+IF ((Test-Path -Path "$FileDestinationPath") -and (Test-Path -Path "$FileSourcePath"))
+{
+  $TargetFile = $FileDestinationPath + "\" + $FileName
+  IF (!(Test-Path -Path $TargetFile))
+  {
+    Try
+    {
+      Copy-Item "$FileSourcePath" "$FileDestinationPath"
+      $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nCopied file: ($FileName) to path: ($FileDestinationPath).")
+    }
+    Catch
+    {
+      $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFailed to copy file: ($FileName) to path: ($FileDestinationPath).")
+    }
+  }
+  ELSE
+  {
+    $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nFile: ($FileName) already exists at path: ($FileDestinationPath). `nDoing Nothing.")
+  }
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nTerminating attempt to copy file: ($FileName) to path: ($FileDestinationPath). `nThe source or target does not exist.")
+}
+
+IF ($Error)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nERROR during copy file attempt. `nError is ($Error)")
+  EXIT
+}
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>FileSourcePath</Name>
+                    <Value>$Config/FileSourcePath$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>FileDestinationPath</Name>
+                    <Value>$Config/FileDestinationPath$</Value>
+                  </Parameter>                  
+                </Parameters>
+                <TimeoutSeconds>300</TimeoutSeconds>
+              </WriteAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="WA" />
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.BaseData</OutputType>
+        <InputType>System!System.BaseData</InputType>
+      </WriteActionModuleType>
+    </ModuleTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.CopyFile.Rule" Target="##ClassID##" Enabled="true" Remotable="true">
+        <Category>Operations</Category>
+        <DataSources>
+          <DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+            <Scheduler>
+              <SimpleReccuringSchedule>
+                <Interval Unit="Seconds">86400</Interval>
+                <SyncTime></SyncTime>
+              </SimpleReccuringSchedule>
+              <ExcludeDates />
+            </Scheduler>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="WA" TypeID="##CompanyID##.##AppName##.##UniqueID##.CopyFile.WA">
+            <FileSourcePath>$FileResource[Name='##CompanyID##.##AppName##.##UniqueID##.File.Resource']/Path$</FileSourcePath>
+            <FileDestinationPath>##DestinationFilePath##</FileDestinationPath>            
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.CopyFile.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## CopyFile Rule</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+  <Resources>
+    <DeployableResource ID="##CompanyID##.##AppName##.##UniqueID##.File.Resource" Accessibility="Internal" FileName="##FileName##" HasNullStream="false" />
+  </Resources>
+</ManagementPackFragment>

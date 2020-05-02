@@ -1,0 +1,127 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  An AGENT TASK that will run a PowerShell Script with Parameters passed to the script
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED   
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  TaskName - is a short name for the task with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  You will need to customize your parameters in this example and add or remove as needed
+
+Version: 1.0
+LastModified: 29-May-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##TaskName##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <ModuleTypes>
+      <WriteActionModuleType ID="##CompanyID##.##AppName##.##TaskName##.Task.WA" Accessibility="Internal" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" name="Param1" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" name="Param2" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="Param1" Selector="$Config/Param1$" ParameterType="string" />
+          <OverrideableParameter ID="Param2" Selector="$Config/Param2$" ParameterType="string" />		  
+		  <OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <WriteAction ID="PSWA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+                <ScriptName>##CompanyID##.##AppName##.##TaskName##.Task.WA.ps1</ScriptName>
+                <ScriptBody>
+                  #=================================================================================
+                  #  Script to execute a task in PowerShell
+                  #=================================================================================
+                  param($Param1, $Param2)				  
+                  #=================================================================================
+                  # Constants section - modify stuff here:
+
+                  # Assign script name variable for use in event logging
+                  $ScriptName = "##CompanyID##.##AppName##.##TaskName##.Task.WA.ps1"
+                  #=================================================================================
+
+                  # Gather script start time
+                  $StartTime = Get-Date
+
+                  # Gather who the script is running as
+                  $whoami = whoami
+
+                  #Load the MOMScript API and discovery propertybag
+                  $momapi = New-Object -comObject "Mom.ScriptAPI"
+
+                  #Log script event that we are starting task
+                  $momapi.LogScriptEvent($ScriptName,6667,0, "Starting script task.  Running as ($whoami)")
+
+                  # Begin Main Script
+                  #=================================================================================
+                  Write-Host "PowerShell script executed"
+				  Write-Host "Param1: " $Param1
+				  Write-Host "Param2: " $Param2
+                  #=================================================================================				  
+
+                  # Log an event for script ending and total execution time.
+                  $EndTime = Get-Date
+                  $ScriptTime = ($EndTime - $StartTime).TotalSeconds
+                  $momapi.LogScriptEvent($ScriptName,6667,0,"`n Script has completed. `n Runtime was ($ScriptTime) seconds.")
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>Param1</Name>
+                    <Value>$Config/Param1$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>Param2</Name>
+                    <Value>$Config/Param2$</Value>
+                  </Parameter>				  
+                </Parameters>
+                <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+              </WriteAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="PSWA" />
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.BaseData</OutputType>
+        <InputType>System!System.BaseData</InputType>
+      </WriteActionModuleType>	
+	</ModuleTypes>
+  </TypeDefinitions>
+  <Monitoring>
+	<Tasks>
+      <Task ID="##CompanyID##.##AppName##.##TaskName##.Task" Accessibility="Public" Enabled="true" Target="##ClassID##" Timeout="120" Remotable="true">
+        <Category>Custom</Category>
+        <WriteAction ID="PSWA" TypeID="##CompanyID##.##AppName##.##TaskName##.Task.WA">
+		  <Param1>YourStaticParam</Param1>
+		  <Param2>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Param2>		  
+          <TimeoutSeconds>60</TimeoutSeconds>
+        </WriteAction>
+      </Task>	
+	</Tasks>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##TaskName##.Task">
+          <Name>##TaskName## Task</Name>
+        </DisplayString>	  
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks>   
+</ManagementPackFragment>

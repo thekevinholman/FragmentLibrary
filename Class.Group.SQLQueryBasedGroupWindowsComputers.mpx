@@ -1,0 +1,269 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A GROUP of Windows Computers that are pulled from a SQL Query
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  GroupNameNoSpaces - needs to be the UNIQUE name that describes your group with NO SPACES OR SPECIAL CHARACTERS ALLOWED.
+  SQLServer - the servername and instancename (if required) of the SQL server to connect to
+  SQLDBName - the database name to query
+  SQLQuery - the SQL query that will return a list of FQDN names ONLY
+
+Version: 1.2
+LastModified: 4-Nov-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##GroupNameNoSpaces##
+  ##SQLServer##
+  ##SQLDBName##
+  ##SQLQuery##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"  
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="MSIL", ID="Microsoft.SystemCenter.InstanceGroup.Library"
+  
+@@Author=Kevin Holman@@
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group" Accessibility="Public" Abstract="false" Base="MSIL!Microsoft.SystemCenter.InstanceGroup" Hosted="false" Singleton="true" />
+      </ClassTypes>
+      <RelationshipTypes>
+        <RelationshipType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Contains.Windows.Computers" Accessibility="Internal" Abstract="false" Base="System!System.Containment">
+          <Source ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Rel.Source" Type="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group" />
+          <Target ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Rel.Target" Type="Windows!Microsoft.Windows.Computer" />
+        </RelationshipType>
+      </RelationshipTypes>		  
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Discovery" Enabled="true" Target="SC!Microsoft.SystemCenter.AllManagementServersPool" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>86333</IntervalSeconds>
+		  <SyncTime></SyncTime>
+          <ScriptName>##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Discovery.ps1</ScriptName>
+          <ScriptBody><![CDATA[
+#=================================================================================
+#  Group Population script based on SQL Query
+#  Your query should return a list of FQDN names only
+#
+#  Kevin Holman
+#  v1.1
+#=================================================================================
+param($SourceID, $ManagedEntityID)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# $SQLServer = "FOO"
+# $SQLDBName = "CMDB"
+# $SQLQuery = "SELECT SERVERNAME from serverlist"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Discovery.ps1"
+$EventID = "7501"
+
+$SQLServer = "##SQLServer##"
+$SQLDBName = "##SQLDBName##"
+$SQLQuery = "##SQLQuery##"
+#=================================================================================
+
+
+# Starting Script section
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#Set variables to be used in logging events
+$whoami = whoami
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami).")
+#=================================================================================
+
+
+# Connect to local SCOM Management Group Section
+#=================================================================================
+# Clear any previous errors
+$Error.Clear()
+# Import the OperationsManager module and connect to the management group
+$SCOMPowerShellKey = "HKLM:\SOFTWARE\Microsoft\System Center Operations Manager\12\Setup\Powershell\V2"
+$SCOMModulePath = Join-Path (Get-ItemProperty $SCOMPowerShellKey).InstallDirectory "OperationsManager"
+Import-module $SCOMModulePath
+New-DefaultManagementGroupConnection "localhost"
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Failure loading OperationsManager module or unable to connect to the management server. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log event for captured parameters
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n SQLServer: ($SQLServer) `n SQLDatabase: ($SQLDBName). `n SQL Query: ($SQLQuery).")
+
+# Health Service class section
+# We need this list of SCOM agents, so we can only submit discovery data for a Healthservice in SCOM otherwise SCOM will reject the discovery data, and this will clean up deleted stale Windows Computer objects that will remain until the next discovery 
+# Clear any previous errors
+$Error.Clear()
+# Get all instances of a existing Health Service class
+$HS = Get-SCOMClass -Name "Microsoft.SystemCenter.Healthservice" | Get-SCOMClassInstance
+$HSNames = $HS.DisplayName
+$HSCount = $HSNames.count
+IF($Error)
+{
+	$momapi.LogScriptEvent($ScriptName,$EventID,1, "`n FATAL ERROR: Unable to gather Healthservice instances from SCOM. `n Error is: $Error")
+    EXIT
+}
+ELSE
+{
+    $momapi.LogScriptEvent($ScriptName,$EventID,0, "`n Get all Health Service Objects has completed. `n Returned ($HSCount) Health Service Objects from SCOM.")
+}
+# END Health Service class section
+
+# Connect to and then Query the database
+$SqlConnection = New-Object System.Data.SqlClient.SqlConnection
+$SqlConnection.ConnectionString = "Server=$SQLServer;Database=$SQLDBName;Integrated Security=True"
+$SqlCmd = New-Object System.Data.SqlClient.SqlCommand
+$SqlCmd.CommandText = $SqlQuery
+$SqlCmd.Connection = $SqlConnection
+$SqlAdapter = New-Object System.Data.SqlClient.SqlDataAdapter
+$SqlAdapter.SelectCommand = $SqlCmd
+$ds = New-Object System.Data.DataSet
+$SqlAdapter.Fill($ds) | Out-Null
+$SqlConnection.Close()
+
+# Check for errors connecting to SQL
+IF ($Error)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  There was an attempting to connect to and query SQL. `n Terminating script. `n Error is: ($Error).")
+  EXIT  
+}
+
+# Set the output to a variable
+[array]$SQLNames = $ds.Tables[0]
+$SQLNamesCount = $SQLNames.Count
+
+IF ($SQLNamesCount -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully collected ($SQLNamesCount) records from the SQL query.")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  There was an error getting records from SQL or no records were returned. `n Number of objects returned: ($SQLNamesCount). `n Terminating script.")
+  EXIT
+}
+
+# Set namelist array to empty
+[array]$NameList = @()
+
+# Loop through each Name from SQL and build an array of FQDN hostnames
+FOREACH ($SQLName in $SQLNames)
+{
+  
+  #Get the Hostname property from SQL
+  [string]$DNSComputerName = $SQLName[0]
+  $NameList += $DNSComputerName
+}
+$NameListCount = $NameList.Count
+
+#Discovery Section
+#Set the group instance we will discover members of
+$GroupInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group']$")
+
+# Loop through each SCOM computer and add a group membership containment relationship to the discovery data
+$i=0;
+FOREACH ($Name in $NameList)
+{
+  #Check to make sure the name we got from AD exists as a Healthservice in this Management Group
+  IF ($Name -in $HSNames)
+  {
+    $i = $i+1
+    $ServerInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='Windows!Microsoft.Windows.Computer']$")
+    $ServerInstance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $Name) 
+    $RelationshipInstance = $DiscoveryData.CreateRelationshipInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Contains.Windows.Computers']$")
+    $RelationshipInstance.Source = $GroupInstance
+    $RelationshipInstance.Target = $ServerInstance
+    $DiscoveryData.AddInstance($RelationshipInstance)   
+  }
+}
+
+IF ($i -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found ($i) Computers in SCOM from the original ($NameListCount) DNS names from the query.")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  No computers in SCOM were found matching the ($NameListCount) DNS names from the query. `n Terminating script.")
+  EXIT
+}
+
+# Return Discovery Items Normally           
+ $DiscoveryData
+
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Ending. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+#End Script
+          ]]></ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>sourceId</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>managedEntityId</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+          </Parameters>
+          <TimeoutSeconds>300</TimeoutSeconds>
+        </DataSource>
+      </Discovery>	  
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## SQLQueryBased Group</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Discovery">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## SQLQueryBased Group Discovery</Name>
+          <Description>This discovery rule populates a group of Windows Computer Objects that are returned from a SQL query</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

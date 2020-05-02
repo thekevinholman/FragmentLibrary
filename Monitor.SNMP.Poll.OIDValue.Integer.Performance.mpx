@@ -1,0 +1,126 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR to query a SNMP devices OID value as an integer, and has two expressions to evaluate and drive monitor state
+  A monitor state change will occur if the INTEGER value is above or below a set threshold.  You will have to modify this example if your OID returns a string
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem 
+  
+Version: 1.1
+LastModified: 29-May-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##OID##
+  ##ThresholdIntegerAboveBad##
+  ##ThresholdIntegerBelowGood##
+
+This fragment depends on references:
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  RequiredReference: Alias="SNL", ID="System.NetworkManagement.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.PerformanceState" Remotable="true" Priority="Normal" TypeID="SNL!System.NetworkManagement.SnmpProbe.2SingleEvent2StateMonitorType" ConfirmDelivery="false">
+        <Category>Custom</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>Warning</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+          <AlertParameters>
+            <AlertParameter1>$Data/Context/SnmpVarBinds/SnmpVarBind[1]/Value$</AlertParameter1>
+            <AlertParameter2>$Data/Context/SnmpVarBinds/SnmpVarBind[1]/OID$</AlertParameter2>			
+          </AlertParameters>
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="BelowThreshold" MonitorTypeStateID="SecondEventRaised" HealthState="Success" />
+          <OperationalState ID="AboveThreshold" MonitorTypeStateID="FirstEventRaised" HealthState="Warning" />  <!-- HealthState = Warning or Error --> 
+        </OperationalStates>
+        <Configuration>
+          <FirstInterval>120</FirstInterval>
+          <FirstIP>$Target/Property[Type="SNL!System.NetworkManagement.Node"]/SNMPAddress$</FirstIP>
+          <FirstVersion>$Target/Property[Type="SNL!System.NetworkManagement.Node"]/SNMPVersion$</FirstVersion>
+          <FirstSnmpVarBinds>
+            <SnmpVarBind>
+              <OID>##OID##</OID>
+              <Syntax>0</Syntax>
+              <Value VariantType="8" />
+            </SnmpVarBind>
+          </FirstSnmpVarBinds>
+          <FirstExpression>
+            <SimpleExpression>
+              <ValueExpression>
+                <XPathQuery Type="Integer">/DataItem/SnmpVarBinds/SnmpVarBind[1]/Value</XPathQuery>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+              <Operator>Greater</Operator>  <!-- Common options for SimpleExpression Operator are "Equal" "NotEqual" "Greater" "Less" "GreaterEqual" "LessEqual" "Like" "NotLike" -->
+              <ValueExpression>
+                <Value Type="Integer">##ThresholdIntegerAboveBad##</Value>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+            </SimpleExpression>
+          </FirstExpression>
+          <SecondInterval>120</SecondInterval>
+          <SecondIP>$Target/Property[Type="SNL!System.NetworkManagement.Node"]/SNMPAddress$</SecondIP>
+          <SecondVersion>$Target/Property[Type="SNL!System.NetworkManagement.Node"]/SNMPVersion$</SecondVersion>
+          <SecondSnmpVarBinds>
+            <SnmpVarBind>
+              <OID>##OID##</OID>
+              <Syntax>0</Syntax>
+              <Value VariantType="8" />
+            </SnmpVarBind>
+          </SecondSnmpVarBinds>
+          <SecondExpression>
+            <SimpleExpression>
+              <ValueExpression>
+                <XPathQuery Type="Integer">/DataItem/SnmpVarBinds/SnmpVarBind[1]/Value</XPathQuery>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+              <Operator>Less</Operator>  <!-- Common options for SimpleExpression Operator are "Equal" "NotEqual" "Greater" "Less" "GreaterEqual" "LessEqual" "Like" "NotLike" -->
+              <ValueExpression>
+                <Value Type="Integer">##ThresholdIntegerBelowGood##</Value>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+            </SimpleExpression>
+          </SecondExpression>
+          <NoOfRetries>3</NoOfRetries>
+          <Timeout>500</Timeout>
+          <Port>$Target/Property[Type="SNL!System.NetworkManagement.Node"]/PortNumber$</Port>
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor">
+          <Name>##CompanyID## ##AppName## SNMP Poll OIDValue ##OID## Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor" SubElementID="BelowThreshold">
+          <Name>Second Probe Raised</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor" SubElementID="AboveThreshold">
+          <Name>First Probe Raised</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.SNMP.Poll.OIDValue.##OID##.Monitor.AlertMessage">
+          <Name>SNMP Device Polled OIDValue Is Above a Threshold</Name>
+          <Description>The OID value of a polled OID on a SNMP device was above a threshold.
+
+SNMP Polled value is: {0}
+OID value polled is: {1}
+</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

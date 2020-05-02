@@ -1,0 +1,352 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!-- 
+%%
+Description:
+  Multiple CLASSES and DISCOVERIES and RELATIONSHIP and FOLDER and VIEWS and ROLLUP MONITORS based on an application with multiple sub roles
+  This is more of an example MP than a fragment.  It provides a structural example of a discovered parent class hosting multiple child role classes
+  This includes cascading discovery from the parent and rollup of health from the child classes
+  There are three different discovery examples used: WMI, Registry, and Script
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+	
+Version: 1.0
+LastModified: 31-Aug-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"	  
+	
+@@Author=Kevin Holman@@
+-->
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.Class" Accessibility="Public" Abstract="false" Base="Windows!Microsoft.Windows.LocalApplication" Hosted="true" Singleton="false" Extension="false" />
+		<!-- We choose Microsoft.Windows.LocalApplication as our generic base class for our hosting parent which must be discovered first in this example similar to a seed class -->	
+        <ClassType ID="##CompanyID##.##AppName##.Role.Class" Accessibility="Public" Abstract="true" Base="Windows!Microsoft.Windows.ApplicationComponent" Hosted="true" Singleton="false" Extension="false" />
+		<!-- We choose Microsoft.Windows.ApplicationComponent as our generic base class for the Abstract Role class to use as a base class only with no relationships or rollup by default -->			
+        <ClassType ID="##CompanyID##.##AppName##.Role.AppRole1.Class" Accessibility="Public" Abstract="false" Base="##CompanyID##.##AppName##.Role.Class" Hosted="true" Singleton="false" Extension="false" />
+        <ClassType ID="##CompanyID##.##AppName##.Role.AppRole2.Class" Accessibility="Public" Abstract="false" Base="##CompanyID##.##AppName##.Role.Class" Hosted="true" Singleton="false" Extension="false">
+          <Property ID="Version" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+          <Property ID="Path" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+        </ClassType>
+      </ClassTypes>
+      <RelationshipTypes>
+        <RelationshipType ID="##CompanyID##.##AppName##.Class.Hosts.##CompanyID##.##AppName##.Role.Class" Accessibility="Public" Abstract="false" Base="System!System.Hosting">
+          <Source ID="Source" Type="##CompanyID##.##AppName##.Class" />
+          <Target ID="Target" Type="##CompanyID##.##AppName##.Role.Class" />
+        </RelationshipType>
+      </RelationshipTypes>
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.Class.Discovery" Enabled="true" Target="Windows!Microsoft.Windows.Server.OperatingSystem" ConfirmDelivery="false" Remotable="false" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.Class" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.WmiProviderWithClassSnapshotDataMapper">
+          <NameSpace>\\$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$\ROOT\CIMV2</NameSpace>
+          <Query>SELECT Name FROM Win32_ServerFeature WHERE ID = 18</Query>
+          <Frequency>86397</Frequency>
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.Class"]$</ClassId>
+          <InstanceSettings>
+            <Settings>
+              <Setting>
+                <Name>$MPElement[Name="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="System!System.Entity"]/DisplayName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+            </Settings>
+          </InstanceSettings>
+        </DataSource>
+      </Discovery>
+      <Discovery ID="##CompanyID##.##AppName##.Role.AppRole1.Class.Discovery" Enabled="true" Target="##CompanyID##.##AppName##.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.Role.AppRole1.Class" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.FilteredRegistryDiscoveryProvider">
+          <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</ComputerName>
+          <RegistryAttributeDefinitions>
+            <RegistryAttributeDefinition>
+              <AttributeName>AppRoleRegKeyExists</AttributeName>
+              <Path>SYSTEM\CurrentControlSet\Services\TSGateway</Path>
+              <PathType>0</PathType>
+              <!-- 0=regKey 1=regValue -->
+              <AttributeType>0</AttributeType>
+              <!-- 0=CheckIfExists (Boolean) 1=treat data as (String) 2=treat data as (Integer) -->
+            </RegistryAttributeDefinition>
+          </RegistryAttributeDefinitions>
+          <Frequency>86393</Frequency>
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.Role.AppRole1.Class"]$</ClassId>
+          <InstanceSettings>
+            <Settings>
+              <Setting>
+                <Name>$MPElement[Name="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="System!System.Entity"]/DisplayName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+            </Settings>
+          </InstanceSettings>
+          <Expression>
+            <SimpleExpression>
+              <ValueExpression>
+                <XPathQuery Type="Boolean">Values/AppRoleRegKeyExists</XPathQuery>
+                <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+              <Operator>Equal</Operator>
+              <!-- Common options for SimpleExpression Operator are "Equal" "NotEqual" "Greater" "Less" "GreaterEqual" "LessEqual" "Like" "NotLike" -->
+              <ValueExpression>
+                <Value Type="Boolean">true</Value>
+                <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+              </ValueExpression>
+            </SimpleExpression>
+          </Expression>
+        </DataSource>
+      </Discovery>
+      <Discovery ID="##CompanyID##.##AppName##.Role.AppRole2.Class.Discovery" Enabled="true" Target="##CompanyID##.##AppName##.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.Role.AppRole2.Class">
+            <Property PropertyID="Version" />
+            <Property PropertyID="Path" />
+          </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>86397</IntervalSeconds>
+          <SyncTime />
+          <ScriptName>##CompanyID##.##AppName##.Role.AppRole2.Class.Discovery.ps1</ScriptName>
+          <ScriptBody>
+#=================================================================================
+#  Describe Script Here
+#
+#  Author: 
+#  v1.0
+#=================================================================================
+param($SourceId,$ManagedEntityId,$MGName,$ComputerName)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# $MGName = "MyMGName"
+# $ComputerName = "computername.domain.com"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.Role.AppRole2.Class.Discovery.ps1"
+$EventID = "1234"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nRunning under Management Group: ($MGName) `nRunning as: ($whoami).")
+#=================================================================================
+
+
+# Discovery Script section - Discovery scripts get this
+#=================================================================================
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#=================================================================================	
+
+
+# Begin MAIN script section
+#=================================================================================
+# Test to see if folder exists
+$Folder = "C:\TEST"
+$FolderExists = Test-Path $Folder
+
+#Set variables for discovered instances
+$Version = "2.0"
+
+# If folder exists create instance of class
+If ($FolderExists -eq $true)
+{
+$instance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.Role.AppRole2.Class']$")
+$instance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $ComputerName)
+$instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.Role.AppRole2.Class']/Version$", $Version)
+$instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.Role.AppRole2.Class']/Path$", $Folder)
+$instance.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$", $ComputerName)
+$DiscoveryData.AddInstance($instance)
+}
+Else
+{
+# Log an event for no objects discovered
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Discovery script returned no discovered objects") 		
+}
+
+# Return Discovery Items Normally           
+$DiscoveryData
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nRunning under Management Group: ($MGName) `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+</ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>SourceID</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ManagedEntityID</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>MGName</Name>
+              <Value>$Target/ManagementGroup/Name$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ComputerName</Name>
+              <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+            </Parameter>
+          </Parameters>
+          <TimeoutSeconds>120</TimeoutSeconds>
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+    <Monitors>
+      <DependencyMonitor ID="##CompanyID##.##AppName##.Role.Class.AvailabilityRollup.Monitor" Accessibility="Public" Enabled="true" Target="##CompanyID##.##AppName##.Class" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" RelationshipType="##CompanyID##.##AppName##.Class.Hosts.##CompanyID##.##AppName##.Role.Class" MemberMonitor="Health!System.Health.AvailabilityState">
+        <Category>Custom</Category>
+        <Algorithm>WorstOf</Algorithm>
+        <MemberUnAvailable>Error</MemberUnAvailable>
+      </DependencyMonitor>
+      <DependencyMonitor ID="##CompanyID##.##AppName##.Role.Class.ConfigurationRollup.Monitor" Accessibility="Public" Enabled="true" Target="##CompanyID##.##AppName##.Class" ParentMonitorID="Health!System.Health.ConfigurationState" Remotable="true" Priority="Normal" RelationshipType="##CompanyID##.##AppName##.Class.Hosts.##CompanyID##.##AppName##.Role.Class" MemberMonitor="Health!System.Health.ConfigurationState">
+        <Category>Custom</Category>
+        <Algorithm>WorstOf</Algorithm>
+        <MemberUnAvailable>Error</MemberUnAvailable>
+      </DependencyMonitor>
+      <DependencyMonitor ID="##CompanyID##.##AppName##.Role.Class.PerformanceStateRollup.Monitor" Accessibility="Public" Enabled="true" Target="##CompanyID##.##AppName##.Class" ParentMonitorID="Health!System.Health.PerformanceState" Remotable="true" Priority="Normal" RelationshipType="##CompanyID##.##AppName##.Class.Hosts.##CompanyID##.##AppName##.Role.Class" MemberMonitor="Health!System.Health.PerformanceState">
+        <Category>Custom</Category>
+        <Algorithm>WorstOf</Algorithm>
+        <MemberUnAvailable>Error</MemberUnAvailable>
+      </DependencyMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <Views>
+      <View ID="##CompanyID##.##AppName##.Alert.View" Accessibility="Internal" Enabled="true" Target="##CompanyID##.##AppName##.Class" TypeID="SC!Microsoft.SystemCenter.AlertViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria>
+          <ResolutionState>
+            <StateRange Operator="NotEquals">255</StateRange>
+          </ResolutionState>
+        </Criteria>
+      </View>
+      <View ID="##CompanyID##.##AppName##.State.View" Accessibility="Internal" Enabled="true" Target="##CompanyID##.##AppName##.Class" TypeID="SC!Microsoft.SystemCenter.StateViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria />
+      </View>
+    </Views>
+    <Folders>
+      <Folder ID="##CompanyID##.##AppName##.Root.Folder" Accessibility="Internal" ParentFolder="SC!Microsoft.SystemCenter.Monitoring.ViewFolder.Root" />
+    </Folders>
+    <FolderItems>
+      <FolderItem ElementID="##CompanyID##.##AppName##.Alert.View" ID="##CompanyID##.##AppName##.Alert.View.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+      <FolderItem ElementID="##CompanyID##.##AppName##.State.View" ID="##CompanyID##.##AppName##.State.View.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+    </FolderItems>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##">
+          <Name>Demo App</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Class">
+          <Name>Demo App Class</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.Class">
+          <Name>Demo App Role Class</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole1.Class">
+          <Name>Demo App AppRole1 Class</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole2.Class">
+          <Name>Demo App AppRole2 Class</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole2.Class" SubElementID="Version">
+          <Name>Version</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole2.Class" SubElementID="Path">
+          <Name>Path</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Class.Discovery">
+          <Name>Demo App Class Discovery</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole1.Class.Discovery">
+          <Name>Demo App AppRole1 Class Discovery</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.AppRole2.Class.Discovery">
+          <Name>Demo App AppRole2 Class Discovery</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Root.Folder">
+          <Name>Demo App</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Alert.View">
+          <Name>Alerts</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.State.View">
+          <Name>State</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.Class.AvailabilityRollup.Monitor">
+          <Name>Demo App Role Availability Rollup Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.Class.ConfigurationRollup.Monitor">
+          <Name>Demo App Role Configuration Rollup Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Role.Class.PerformanceStateRollup.Monitor">
+          <Name>Demo App Role Performance Rollup Monitor</Name>
+          <Description />
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

@@ -1,0 +1,322 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A rule that runs a timed PowerShell script then a Condition Detection Filter then a PowerShell Script Write Action
+	Use this when you need a script to look for something GOOD or BAD then use the PowerShell script Write Action to make a change to the system
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "MonitorFilesInFolder"  
+
+Version: 1.0
+LastModified: 27-Jan-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+-->
+  <TypeDefinitions>
+    <ModuleTypes>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+					<xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+					<xsd:element minOccurs="0" type="xsd:string" name="SyncTime" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+					<xsd:element minOccurs="1" type="xsd:integer" name="DSParam1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+					<xsd:element minOccurs="1" type="xsd:string" name="DSParam2" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />		
+					<xsd:element minOccurs="1" type="xsd:integer" name="TimeoutSecondsDS" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />						
+        </Configuration>
+        <OverrideableParameters>
+		      <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		      <OverrideableParameter ID="SyncTime" Selector="$Config/SyncTime$" ParameterType="string" />
+          <OverrideableParameter ID="DSParam1" Selector="$Config/DSParam1$" ParameterType="int" />
+					<OverrideableParameter ID="DSParam2" Selector="$Config/DSParam2$" ParameterType="string" />
+		      <OverrideableParameter ID="TimeoutSecondsDS" Selector="$Config/TimeoutSecondsDS$" ParameterType="int" />					
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+                <Scheduler>
+                  <SimpleReccuringSchedule>
+                    <Interval Unit="Seconds">$Config/IntervalSeconds$</Interval>
+										<SyncTime>$Config/SyncTime$</SyncTime>
+                  </SimpleReccuringSchedule>
+                  <ExcludeDates />
+                </Scheduler>
+              </DataSource>
+              <ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagProbe">
+                <ScriptName>##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.DS.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  Example Script to create a bad property output to run another script writeaction
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param([int]$DSParam1,[string]$DSParam2)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# [int]$DSParam1 = "1"
+# [string]$DSParam2 = "foo"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.DS.ps1"
+$EventID = "2345"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#=================================================================================
+
+
+# PropertyBag Script section - Monitoring scripts get this
+#=================================================================================
+# Load SCOM PropertyBag function
+$bag = $momapi.CreatePropertyBag()
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami). `n Param1: ($DSParam1). `n Param2: ($DSParam2).")
+
+# Set something to be bad as if the script found something wrong
+$Trigger = "BAD"
+
+IF ($Trigger -eq "BAD")
+{
+  #This is bad.  
+  $Result = "BAD"
+  $bag.AddValue('Result',$Result)
+  $bag.AddValue('DSParam1',$DSParam1)
+  $bag.AddValue('DSParam2',$DSParam2)
+  
+  #Log event
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n ERROR:  Something BAD happened.")
+}
+ELSE
+{
+  # This is good
+  $Result = "GOOD"
+  $bag.AddValue('Result',$Result)
+  $bag.AddValue('DSParam1',$DSParam1)
+  $bag.AddValue('DSParam2',$DSParam2)	
+
+  #Log event
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n GOOD: Something GOOD happened.")
+}
+
+# Return all bags
+$bag
+#=================================================================================
+# End MAIN script section
+ 
+  
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>DSParam1</Name>
+                    <Value>$Config/DSParam1$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>DSParam2</Name>
+                    <Value>$Config/DSParam2$</Value>
+                  </Parameter>									
+                </Parameters>
+				        <TimeoutSeconds>$Config/TimeoutSecondsDS$</TimeoutSeconds>
+              </ProbeAction>			  
+            </MemberModules>
+            <Composition>
+              <Node ID="PA">
+                <Node ID="Scheduler" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.PropertyBagData</OutputType>
+      </DataSourceModuleType>
+      <WriteActionModuleType ID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.WA" Accessibility="Internal" Batching="false">
+        <Configuration>
+		      <xsd:element minOccurs="1" name="ComputerName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" name="WAParam1" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" name="WAParam2" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />					
+          <xsd:element minOccurs="1" name="TimeoutSecondsWA" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="WAParam1" Selector="$Config/WAParam1$" ParameterType="string" />
+          <OverrideableParameter ID="WAParam2" Selector="$Config/WAParam2$" ParameterType="int" />					
+          <OverrideableParameter ID="TimeoutSecondsWA" Selector="$Config/TimeoutSecondsWA$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+            <WriteAction ID="WA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+            <ScriptName>##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.WA.ps1</ScriptName>
+            <ScriptBody>
+#=================================================================================
+#  Describe Script Here
+#
+#  Author: 
+#  v1.0
+#=================================================================================
+param([string]$ComputerName,[string]$MGName,[string]$WAParam1,[int]$WAParam2)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $ComputerName = "computername.domain.com"
+# $MGName = "foo"
+# $WAParam1 = "bar"
+# $WAParam2 = "10"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.WA.ps1"
+$EventID = "2346"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log script event that we are starting task and any params
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami). `n ComputerName: ($ComputerName). `n ManagementGroup Name: ($MGName). `n WAParam1: ($WAParam1). `n WAParam2 ($WAParam2).")
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+            </ScriptBody>
+            <Parameters>
+              <Parameter>
+                <Name>ComputerName</Name>
+                <Value>$Config/ComputerName$</Value>
+              </Parameter>
+			        <Parameter>
+                <Name>MGName</Name>
+                <Value>$Target/ManagementGroup/Name$</Value>
+              </Parameter>
+			        <Parameter>
+                <Name>WAParam1</Name>
+                <Value>$Config/WAParam1$</Value>
+              </Parameter>
+			        <Parameter>
+                <Name>WAParam2</Name>
+                <Value>$Config/WAParam2$</Value>
+              </Parameter>							
+            </Parameters>
+            <TimeoutSeconds>$Config/TimeoutSecondsWA$</TimeoutSeconds>
+          </WriteAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="WA" />
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.BaseData</OutputType>
+        <InputType>System!System.BaseData</InputType>
+      </WriteActionModuleType>
+    </ModuleTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Custom</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.DS">
+            <IntervalSeconds>600</IntervalSeconds>
+			      <SyncTime></SyncTime>
+			      <DSParam1>123</DSParam1>
+			      <DSParam2>foo</DSParam2>
+			      <TimeoutSecondsDS>120</TimeoutSecondsDS>						
+          </DataSource>
+        </DataSources>
+        <ConditionDetection ID="CD" TypeID="System!System.ExpressionFilter">
+		      <Expression>
+		        <SimpleExpression>
+			        <ValueExpression>
+			          <XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+			        </ValueExpression>
+			        <Operator>Equal</Operator>
+			        <ValueExpression>
+			          <Value Type="String">BAD</Value>
+			        </ValueExpression>
+		        </SimpleExpression>
+		      </Expression>
+        </ConditionDetection>		
+        <WriteActions>
+          <WriteAction ID="WA" TypeID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule.WA">
+		        <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</ComputerName>
+		        <WAParam1>bar</WAParam1>
+		        <WAParam2>456</WAParam2>						
+            <TimeoutSecondsWA>120</TimeoutSecondsWA>
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.TimedPowerShell.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## TimedPowerShell Rule</Name>
+          <Description />
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks> 
+</ManagementPackFragment>

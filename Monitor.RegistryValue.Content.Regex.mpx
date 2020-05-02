@@ -1,0 +1,136 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR which checks for the content of a registry VALUE and compares it as a STRING to an expected value expression in Regex
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem  
+  RegValuePath - needs to be in the format of "SOFTWARE\Microsoft\CCM\HttpPort" or "SYSTEM\CurrentControlSet\Services\CcmExec\Start" as HKLM is assumed
+  RegValueName - needs to be a UNIQUE short name to describe your Reg VALUE with NO SPACES OR SPECIAL CHARACTERS ALLOWED such as "HttpPort"
+  RegValueExpression - can be a direct match or any regex.  ^()$ will be hard coded in this example but you can change this
+
+Version: 1.2
+LastModified: 31-Aug-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##RegValuePath##
+  ##RegValueName##
+  ##RegValueExpression##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"	
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <MonitorTypes>
+      <UnitMonitorType ID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.MonitorType" Accessibility="Internal">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="RegValueMatch" NoDetection="false" />
+          <MonitorTypeState ID="RegValueDoesNotMatch" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration />
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="RegDS" TypeID="Windows!Microsoft.Windows.RegistryProvider">
+              <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+              <RegistryAttributeDefinitions>
+                <RegistryAttributeDefinition>
+                  <AttributeName>##RegValueName##</AttributeName>
+                  <Path>##RegValuePath##</Path>
+                  <PathType>1</PathType>  <!-- 0=regKey 1=regValue -->
+                  <AttributeType>1</AttributeType>  <!-- 0=CheckIfExists (Boolean) 1=treat data as (String) 2=treat data as (Integer) -->
+                </RegistryAttributeDefinition>
+              </RegistryAttributeDefinitions>
+              <Frequency>3600</Frequency>  <!-- seconds -->
+            </DataSource>
+            <ConditionDetection ID="CDGood" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <RegExExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="String">Values/##RegValueName##</XPathQuery>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+                  </ValueExpression>
+                  <Operator>MatchesRegularExpression</Operator>  <!-- Common Operators are MatchesWildcard, DoesNotMatchWildcard, ContainsSubstring, DoesNotContainSubstring, MatchesRegularExpression, DoesNotMatchRegularExpression -->
+                  <Pattern>^(##RegValueExpression##)$</Pattern>
+                </RegExExpression>
+              </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="CDBad" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <RegExExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="String">Values/##RegValueName##</XPathQuery>  <!-- Common options for XPathQuery Type are "Boolean" "String" "Integer" "Double" -->
+                  </ValueExpression>
+                  <Operator>DoesNotMatchRegularExpression</Operator>  <!-- Common Operators are MatchesWildcard, DoesNotMatchWildcard, ContainsSubstring, DoesNotContainSubstring, MatchesRegularExpression, DoesNotMatchRegularExpression -->
+                  <Pattern>^(##RegValueExpression##)$</Pattern>
+                </RegExExpression>
+              </Expression>
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="RegValueMatch">
+              <Node ID="CDGood">
+                <Node ID="RegDS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="RegValueDoesNotMatch">
+              <Node ID="CDBad">
+                <Node ID="RegDS" />
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>
+    </MonitorTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.ConfigurationState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.MonitorType" ConfirmDelivery="true">
+        <Category>Custom</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>MatchMonitorHealth</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="Success" MonitorTypeStateID="RegValueMatch" HealthState="Success" />
+          <OperationalState ID="Warning" MonitorTypeStateID="RegValueDoesNotMatch" HealthState="Warning" />  <!-- HealthState = Warning or Error -->
+        </OperationalStates>
+        <Configuration />
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor">
+          <Name>##CompanyID## ##AppName## RegValueContent ##RegValueName## Monitor</Name>
+          <Description></Description>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor" SubElementID="Success">
+          <Name>RegValueMatch</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor" SubElementID="Warning">
+          <Name>RegValueDoesNotMatch</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RegValueContent.##RegValueName##.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## RegValueContent ##RegValueName## Monitor Alert</Name>
+          <Description>##CompanyID## ##AppName## RegValueContent ##RegValueName## Monitor detected the registry value at ##RegValuePath## does not meet expected regex expression of "(##RegValueExpression##)"</Description>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

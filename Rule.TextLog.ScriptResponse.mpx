@@ -1,0 +1,147 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A RULE to run a script response to a match on a specific string on a new line in an ASCII Text Log file
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "CountFilesInFolder"  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem     
+  LogFileDirectory - is the folder path that contains the log files.  Example:  C:\logs
+  LogFilePattern - is the filename of the log file or a wildcard to match multiple files.  Example:  MyAppLog.txt or *.txt
+  StringToMatch - is the string you want to find in a new line added to the log.  Example:  error
+
+Version: 1.0
+LastModified: 11-Dec-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##  
+  ##ClassID##
+  ##LogFileDirectory##
+  ##LogFilePattern##
+  ##StringToMatch##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"  
+  RequiredReference: Alias="SAL", ID="System.ApplicationLog.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Custom</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="SAL!System.ApplicationLog.GenericLog.FilteredEventProvider">
+            <LogFileDirectory>##LogFileDirectory##</LogFileDirectory>
+            <LogFilePattern>##LogFilePattern##</LogFilePattern>
+            <LogIsUTF8>false</LogIsUTF8>
+            <Expression>
+              <RegExExpression>
+                <ValueExpression>
+                  <XPathQuery Type="String">Params/Param[1]</XPathQuery>
+                </ValueExpression>
+                <Operator>ContainsSubstring</Operator>
+                <Pattern>##StringToMatch##</Pattern>
+              </RegExExpression>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="WA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+            <ScriptName>##CompanyID##.##AppName##.##UniqueID##.LogFile.Rule.ps1</ScriptName>
+            <ScriptBody>
+#=================================================================================
+#  Describe Script Here
+#
+#  Author: 
+#  v1.0
+#=================================================================================
+param($ComputerName,$LogFileDirectory,$LogFileName,$MatchingLineInLog)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $ComputerName = "computername.domain.com"
+# $LogFileDirectory = "C:\logs"
+# $LogFileName = "log.txt"
+# $MatchingLineInLog = "There was an ERROR"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.LogFile.Rule.ps1"
+$EventID = "1234"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami).")
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+# Log an event for the Params			  
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n These are the parameters passed from script: `n ComputerName: ($ComputerName). `n LogFileDirectory: ($LogFileDirectory) `n LogFileName: ($LogFileName) `n MatchingLineInLog: ($MatchingLineInLog).")
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+            </ScriptBody>
+            <Parameters>
+              <Parameter>
+                <Name>ComputerName</Name>
+                <Value>$Target/Host/Property[Type='Windows!Microsoft.Windows.Computer']/PrincipalName$</Value>
+              </Parameter>
+			  <Parameter>
+                <Name>LogFileDirectory</Name>
+                <Value>$Data/EventData/DataItem/LogFileDirectory$</Value>
+              </Parameter>
+			  <Parameter>
+                <Name>LogFileName</Name>
+                <Value>$Data/EventData/DataItem/LogFileName$</Value>
+              </Parameter>
+			  <Parameter>
+                <Name>MatchingLineInLog</Name>
+                <Value>$Data/EventData/DataItem/Params/Param[1]$</Value>
+              </Parameter>				  
+            </Parameters>
+            <TimeoutSeconds>120</TimeoutSeconds>
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.LogFile.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Logfile Rule</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

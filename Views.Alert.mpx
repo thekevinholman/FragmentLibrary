@@ -1,0 +1,52 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  An ALERT View scoped to your custom class.
+  This assumes you already have included a ROOT FOLDER that has an ID of CompanyID.AppName.Root.Folder
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class for the views such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - We need a Unique ID for these views to reuse the fragment such as a shortened version of your class name which will also be the View name.  NO SPACES OR SPECIAL CHARACTERS ALLOWED    
+  
+Version: 1.0
+LastModified: 31-Aug-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+
+This fragment depends on references:
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  
+@@Author=Kevin Holman@@  
+-->
+  <Presentation>
+    <Views>
+      <View ID="##CompanyID##.##AppName##.##UniqueID##.Alert.View" Accessibility="Internal" Enabled="true" Target="##ClassID##" TypeID="SC!Microsoft.SystemCenter.AlertViewType" Visible="true">
+        <Category>Custom</Category>
+        <Criteria>
+          <ResolutionState>
+            <StateRange Operator="NotEquals">255</StateRange>
+          </ResolutionState>
+        </Criteria>
+      </View>
+    </Views>
+    <FolderItems>
+      <FolderItem ElementID="##CompanyID##.##AppName##.##UniqueID##.Alert.View" ID="##CompanyID##.##AppName##.##UniqueID##.Alert.View.FolderItem" Folder="##CompanyID##.##AppName##.Root.Folder" />
+    </FolderItems>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Alert.View">
+          <Name>##UniqueID## Alerts</Name>
+          <Description />
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

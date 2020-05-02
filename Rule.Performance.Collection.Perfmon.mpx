@@ -1,0 +1,68 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A RULE to collect performance data from native perfmon.  Optimization can be set but the default is non-optimized
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem  
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "PercentProcessorTime"
+
+
+Version: 1.2
+LastModified: 4-Nov-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##ClassID##
+  ##ObjectName##
+  ##CounterName##
+  ##InstanceName##
+  ##FrequencySeconds##
+
+This fragment depends on references:
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Perf", ID="System.Performance.Library"
+  RequiredReference: Alias="MSDL", ID="Microsoft.SystemCenter.DataWarehouse.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.PerformanceCollection.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="false" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>PerformanceCollection</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="Perf!System.Performance.OptimizedDataProvider">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <CounterName>##CounterName##</CounterName>
+            <ObjectName>##ObjectName##</ObjectName>
+            <InstanceName>##InstanceName##</InstanceName>
+            <AllInstances>false</AllInstances>
+            <Frequency>##FrequencySeconds##</Frequency>  <!-- 300 or 900 seconds is a good recommended interval for perf collection -->
+            <Tolerance>0</Tolerance>  <!-- The amount of absolute or percentage change that is allowed before forcing a collection of the data when optimized -->
+            <ToleranceType>Absolute</ToleranceType>  <!-- Can be Absolute or Percentage when using optimization -->
+            <MaximumSampleSeparation>1</MaximumSampleSeparation>   <!-- Max samples that can be optimized if they don't change.  1 means collect on every interval.  Change this to larger value to optimize counters that don't change often -->
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="WriteToDB" TypeID="SC!Microsoft.SystemCenter.CollectPerformanceData" />	<!-- Can be optional - collect this data to the Operations Database.  --> 
+          <WriteAction ID="WriteToDW" TypeID="MSDL!Microsoft.SystemCenter.DataWarehouse.PublishPerformanceData" />	<!-- Can be optional - collect this data to the Data Warehouse Database -->
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PerformanceCollection.Rule">
+          <Name>##CompanyID## ##AppName## ##CounterName## Performance Collection Rule</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

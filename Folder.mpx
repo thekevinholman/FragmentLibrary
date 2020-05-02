@@ -1,0 +1,41 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A FOLDER which is directly under the monitoring root in the console
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  
+Version: 1.0
+LastModified: 12-Feb-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+
+This fragment depends on references:
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  
+@@Author=Kevin Holman@@  
+-->
+  <Presentation>
+    <Views>
+    </Views>
+    <Folders>
+      <Folder ID="##CompanyID##.##AppName##.Root.Folder" Accessibility="Internal" ParentFolder="SC!Microsoft.SystemCenter.Monitoring.ViewFolder.Root" />
+    </Folders>
+    <FolderItems>
+    </FolderItems>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.Root.Folder">
+          <Name>##CompanyID## ##AppName##</Name>
+          <Description />
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

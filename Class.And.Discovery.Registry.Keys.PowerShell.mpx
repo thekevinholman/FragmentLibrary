@@ -1,0 +1,144 @@
+<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!-- 
+%%
+Description:
+  A CLASS and DISCOVERY based on a reg key matching a pattern in a PowerShell script.
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  In this example we added a class property to discover the "servicename" based on what was found in the registry
+	UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+	
+Version: 1.3
+LastModified: 12-Feb-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+	##UniqueID##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Accessibility="Public" Abstract="false" Base="Windows!Microsoft.Windows.LocalApplication" Hosted="true" Singleton="false">
+          <Property ID="ServiceName" Type="string" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" />
+		<!-- We choose Microsoft.Windows.LocalApplication as our generic base class -->
+		<!-- This specific fragment example has a class property of "ServiceName" since we are discovering a service in the script example. You can remove this if not desired -->		
+        </ClassType>
+      </ClassTypes>
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery" Enabled="true" Target="Windows!Microsoft.Windows.Server.OperatingSystem" ConfirmDelivery="true" Remotable="true" Priority="Normal">
+	  <!-- We choose Microsoft.Windows.Server.OperatingSystem as the preferred target class to ensure this will run on all Windows Servers, but wont create duplicates on clusters -->
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" />
+        </DiscoveryTypes>
+        <DataSource ID="PSDiscovery" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>86403</IntervalSeconds>
+          <SyncTime />
+          <ScriptName>##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.ps1</ScriptName>
+          <ScriptBody>
+#=================================================================================
+#  Description of Script here
+#=================================================================================
+param($SourceId,$ManagedEntityId,$ComputerName)
+
+#=================================================================================
+# Constants section - modify stuff here:
+# Change the registry path and search pattern below to match your needs.
+  $RegPath = "SYSTEM\CurrentControlSet\Services"
+  $Pattern = "*spooler*"
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.ps1"
+#=================================================================================
+
+# Gather script start time
+$StartTime = Get-Date             
+
+# Gather who the script is running as
+$whoami = whoami
+
+# Load the MOMScript API and discovery propertybag
+$momapi = New-Object -comObject "Mom.ScriptAPI"  
+$dbag = $momapi.CreateDiscoveryData(0, $sourceId, $managedEntityId)
+
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,1234,0, "Starting script.  Running as ($whoami)")
+
+# Begin Main Script
+#=================================================================================
+#Get matching subkeys
+#The next line uses a "like" operator which can be changed to -eq if you dont want to use a wildcard
+$Keys = Get-ChildItem -Path HKLM:\$RegPath | where {$_.Name -like "$Pattern"} | % { $_.Name.Replace("HKEY_LOCAL_MACHINE\$RegPath\","")} 
+IF ($Keys.length -gt 0)
+{
+	foreach ($Key in $Keys)
+	{
+		#Add discovery data to the bag
+		$instance = $dbag.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']$")
+		$instance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $ComputerName)
+		$instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/ServiceName$", $Key)
+		$instance.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$", $Key)
+		$dbag.AddInstance($instance)
+	}
+}
+Else
+{
+	# Log an event for no objects discovered
+	$momapi.LogScriptEvent($ScriptName,1234,0,"Discovery script returned no discovered objects")
+}
+#=================================================================================
+
+#Output Discovery Propertybag
+$dbag	
+
+# Return Discovery Bag to the command line for testing (does not work from ISE):
+# $momapi.Return($dbag)
+	
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,1234,0,"Script has completed.  Runtime was ($ScriptTime) seconds.")
+</ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>sourceID</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>managedEntityID</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>computerName</Name>
+              <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+            </Parameter>
+          </Parameters>
+          <TimeoutSeconds>120</TimeoutSeconds>
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class Discovery</Name>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
+  

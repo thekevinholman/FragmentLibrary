@@ -1,0 +1,56 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A CONSOLE task that will run a command such as Ping.exe
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  TaskName - is a UNIQUE short name for the task with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  You will need to customize Application and Argument and add additional arguments as needed.  Ping is provided as an example only
+Version: 1.0
+LastModified: 4-Nov-2017
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##TaskName##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Categories>
+    <Category ID="Cat.##CompanyID##.##AppName##.##TaskName##.Console.Task" Target="##CompanyID##.##AppName##.##TaskName##.Console.Task" Value="System!System.Internal.ManagementPack.ConsoleTasks.MonitoringObject" />
+  </Categories>
+  <Presentation>
+    <ConsoleTasks>
+      <ConsoleTask ID="##CompanyID##.##AppName##.##TaskName##.Console.Task" Accessibility="Internal" Enabled="true" Target="##ClassID##" RequireOutput="true">
+        <Assembly>Res.##CompanyID##.##AppName##.##TaskName##.Console.Task</Assembly>
+        <Handler>ShellHandler</Handler>
+        <Parameters>
+          <Argument Name="WorkingDirectory" />
+          <Argument Name="Application">%windir%\system32\ping.exe</Argument>
+          <Argument>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Argument>
+        </Parameters>
+      </ConsoleTask>
+    </ConsoleTasks>	  
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##TaskName##.Console.Task">
+          <Name>##TaskName## Console Task</Name>
+        </DisplayString>	  
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks>
+  <Resources>
+    <Assembly ID="Res.##CompanyID##.##AppName##.##TaskName##.Console.Task" Accessibility="Public" FileName="##CompanyID##.##AppName##.##TaskName##.Console.Task" HasNullStream="true" QualifiedName="##CompanyID##.##AppName##.##TaskName##.Console.Task" />
+  </Resources>  
+</ManagementPackFragment>

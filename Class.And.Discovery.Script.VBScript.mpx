@@ -1,0 +1,129 @@
+<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A CLASS and DISCOVERY using a VBSCRIPT to create class instances
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+	UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  In this example we added a a couple additional class properties to demo that capability 
+	
+Version: 1.4
+LastModified: 12-Feb-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+	##UniqueID##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Base="Windows!Microsoft.Windows.LocalApplication" Accessibility="Public" Abstract="false" Hosted="true" Singleton="false">
+          <Property ID="Version" Type="string"/>
+          <Property ID="Path" Type="string"/>
+		<!-- We choose Microsoft.Windows.LocalApplication as our generic base class -->
+		<!-- This specific fragment example has class properties for Version and Path as examples only.  You can change or remove these if not desired -->		  
+        </ClassType>	  
+      </ClassTypes>
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery" Target="Windows!Microsoft.Windows.Server.OperatingSystem" Enabled="true" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+      <!-- We choose Microsoft.Windows.Server.OperatingSystem as the preferred target class to ensure this will run on all Windows Servers, but will not create duplicates on clusters -->
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+			<DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class">
+            <Property PropertyID="Version"/>
+            <Property PropertyID="Path"/>
+          </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="VBScriptDS" TypeID="Windows!Microsoft.Windows.TimedScript.DiscoveryProvider">
+          <IntervalSeconds>86400</IntervalSeconds>
+          <SyncTime/>
+          <ScriptName>##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.vbs</ScriptName>
+          <Arguments>$MPElement$ $Target/Id$ $Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Arguments>
+          <ScriptBody><![CDATA[
+Option Explicit
+
+Dim oArgs
+Set oArgs = WScript.Arguments
+if oArgs.Count < 3 Then
+   Wscript.Quit -1
+End If
+
+SourceId = oArgs(0)
+ManagedEntityId = oArgs(1)
+TargetComputer = oArgs(2)
+
+Dim StartTime,EndTime,sTime
+'Capture script start time
+  StartTime = Now
+
+dim oAPI, oDiscoveryData, oInst, SourceID, ManagedEntityId, TargetComputer
+
+'Load MOMScript API and PropertyBag function
+  Set oAPI = CreateObject("MOM.ScriptAPI")
+  Set oDiscoveryData = oAPI.CreateDiscoveryData(0, SourceId, ManagedEntityId)
+
+'Log script event that we are starting discovery
+  Call oAPI.LogScriptEvent("##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.vbs", 1234, 0, "Starting script")
+
+' Change your logic here to discover and create class instances based on an If statement
+' In this example we are simply looking for the existence of a folder to create class instances
+' We are hard coding properties but you could easily gather those in the script and set to variables
+Dim oFso
+Set oFso = CreateObject("Scripting.FileSystemObject")
+
+If (oFso.FolderExists("C:\AuthorMPs")) Then
+	set oInst = oDiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']$")
+	call oInst.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", TargetComputer)
+	call oInst.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/Version$", "2.0")
+	call oInst.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/Path$", "C:\AuthorMPs")
+	call oInst.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$", TargetComputer)
+	call oDiscoveryData.AddInstance(oInst)
+Else
+'Log script event that we are ending discovery
+  Call oAPI.LogScriptEvent("##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.vbs", 1234, 0, "No objects discovered")
+End If
+
+'Capture script runtime for logging
+EndTime = Now
+sTime = DateDiff("s", StartTime, EndTime)
+'Log script event that we are ending discovery
+  Call oAPI.LogScriptEvent("##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.vbs", 1234, 0, "Ending script.  Script runtime in seconds: " & sTime)
+
+Call oAPI.Return(oDiscoveryData)
+		]]></ScriptBody>
+          <TimeoutSeconds>120</TimeoutSeconds>
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="Version">
+          <Name>Version</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="Path">
+          <Name>Path</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class Discovery</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>  
+</ManagementPackFragment>

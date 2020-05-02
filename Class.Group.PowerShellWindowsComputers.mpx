@@ -1,0 +1,232 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A GROUP of Windows Computers that are created by a PowerShell Script
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  GroupNameNoSpaces - needs to be a UNIQUE short name that describes your group with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  
+
+Version: 1.0
+LastModified: 11-Nov-2018
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##GroupNameNoSpaces##
+
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"  
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="MSIL", ID="Microsoft.SystemCenter.InstanceGroup.Library"
+  
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group" Accessibility="Public" Abstract="false" Base="MSIL!Microsoft.SystemCenter.InstanceGroup" Hosted="false" Singleton="true" />
+      </ClassTypes>
+      <RelationshipTypes>
+        <RelationshipType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Contains.Windows.Computers" Accessibility="Internal" Abstract="false" Base="System!System.Containment">
+          <Source ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Rel.Source" Type="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group" />
+          <Target ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Rel.Target" Type="Windows!Microsoft.Windows.Computer" />
+        </RelationshipType>
+      </RelationshipTypes>		  
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Discovery" Enabled="true" Target="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>86331</IntervalSeconds>
+		  <SyncTime></SyncTime>
+          <ScriptName>##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Discovery.ps1</ScriptName>
+          <ScriptBody>
+#=================================================================================
+#  Group Population script based on PowerShell
+#
+#  Kevin Holman
+#  v1.0
+#=================================================================================
+param($SourceID, $ManagedEntityID)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Discovery.ps1"
+$EventID = "7501"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#Set variables to be used in logging events
+$whoami = whoami
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami).")
+#=================================================================================
+
+
+# Connect to local SCOM Management Group Section
+#=================================================================================
+# Clear any previous errors
+$Error.Clear()
+# Import the OperationsManager module and connect to the management group
+$SCOMPowerShellKey = "HKLM:\SOFTWARE\Microsoft\System Center Operations Manager\12\Setup\Powershell\V2"
+$SCOMModulePath = Join-Path (Get-ItemProperty $SCOMPowerShellKey).InstallDirectory "OperationsManager"
+Import-module $SCOMModulePath
+New-DefaultManagementGroupConnection "localhost"
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Failure loading OperationsManager module or unable to connect to the management server. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+# Health Service class section
+# We need this list of SCOM agents, so we can only submit discovery data for a Healthservice in SCOM otherwise SCOM will reject the discovery data, and this will clean up deleted stale Windows Computer objects that will remain until the next discovery 
+# Clear any previous errors
+$Error.Clear()
+# Get all instances of a existing Health Service class
+$HS = Get-SCOMClass -Name "Microsoft.SystemCenter.Healthservice" | Get-SCOMClassInstance
+$HSNames = $HS.DisplayName
+$HSCount = $HSNames.count
+IF($Error)
+{
+	$momapi.LogScriptEvent($ScriptName,$EventID,1, "`n FATAL ERROR: Unable to gather Healthservice instances from SCOM. `n Error is: $Error")
+    EXIT
+}
+ELSE
+{
+    $momapi.LogScriptEvent($ScriptName,$EventID,0, "`n Get all Health Service Objects from SCOM has completed. `n Returned ($HSCount) Health Service Objects from SCOM.")
+}
+# END Health Service class section
+
+# Set namelist array to empty
+[array]$NameList = @()
+
+
+
+# The next section is just an example of adding Computer Names manually to an array.
+# This section would normally be where you edit your crioteria to get a list of servernames in an array to add to a group
+# You could use a query, CSV, text file, or any external source to get this list for group membership
+# Example of adding FQDN names to an array
+$NameList = "server.opsmgr.net"
+$NameList = $NameList + "dc1.opsmgr.net"
+$NameList = $NameList + "dc3.opsmgr.net"
+
+$NameListCount = $NameList.Count
+
+IF ($NameListCount -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found ($NameListCount) DNS Names in the NameList.")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  There was an error getting DNS Host Names.  Terminating script.")
+  EXIT
+}
+
+#Discovery Section
+#Set the group instance we will discover members of
+$GroupInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group']$")
+
+# Loop through each Name and add a group membership containment relationship to the discovery data
+$i=0;
+FOREACH ($Name in $NameList)
+{
+  #Check to make sure the name exists as a Healthservice in this Management Group
+  IF ($Name -in $HSNames)
+  {
+    $i = $i+1
+    $ServerInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='Windows!Microsoft.Windows.Computer']$")
+    $ServerInstance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $Name) 
+    $RelationshipInstance = $DiscoveryData.CreateRelationshipInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Contains.Windows.Computers']$")
+    $RelationshipInstance.Source = $GroupInstance
+    $RelationshipInstance.Target = $ServerInstance
+    $DiscoveryData.AddInstance($RelationshipInstance)   
+  }
+}
+
+IF ($i -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found ($i) Computers in SCOM from the original ($NameListCount) DNS names in the list.")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  No computers in SCOM were found matching the ($NameListCount) DNS names in the list. `n Terminating script.")
+  EXIT
+}
+
+# Return Discovery Items Normally           
+ $DiscoveryData
+
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Ending. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+#End Script
+          </ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>sourceId</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>managedEntityId</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+          </Parameters>
+          <TimeoutSeconds>300</TimeoutSeconds>
+        </DataSource>
+      </Discovery>	  
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## Script Based Group</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ScriptBased.Group.Discovery">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## Script Based Group Discovery</Name>
+          <Description>This discovery rule populates a group of Windows Computer Objects from a PowerShell Script</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

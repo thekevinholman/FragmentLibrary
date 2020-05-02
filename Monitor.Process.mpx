@@ -1,0 +1,180 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR for number of processes expected and will generate an alert when under the minimum threshold
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - We need a Unique ID for this Monitor to reuse the fragment.  Use a shortened descriptive name for the Process with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  ClassID - The targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  ProcessName - The LOWERCASE name of the process such as "tiworker.exe"  THIS MUST BE IN LOWERCASE
+
+Version: 1.2
+LastModified: 20-Sep-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##
+  ##ClassID##
+  ##ProcessName##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+
+@@Author=Kevin Holman@@  
+-->
+  <TypeDefinitions>
+    <MonitorTypes>
+        <UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.MonitorType" Accessibility="Public">
+          <MonitorTypeStates>
+            <MonitorTypeState ID="ProcessCountUnderMinimum" NoDetection="false" />
+            <MonitorTypeState ID="ProcessCountAboveMinimum" NoDetection="false" />
+          </MonitorTypeStates>
+          <Configuration>
+            <IncludeSchemaTypes>
+              <SchemaType>System!System.ExpressionEvaluatorSchema</SchemaType>
+            </IncludeSchemaTypes>
+            <xsd:element name="ProcessName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+            <xsd:element name="Frequency" type="xsd:unsignedInt" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+            <xsd:element name="MinProcessCount" type="xsd:unsignedInt" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		    <xsd:element name="Samples" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          </Configuration>
+          <OverrideableParameters>
+            <OverrideableParameter ID="Frequency" Selector="$Config/Frequency$" ParameterType="int" />
+		    <OverrideableParameter ID="MinProcessCount" Selector="$Config/MinProcessCount$" ParameterType="int" />		  
+		    <OverrideableParameter ID="Samples" Selector="$Config/Samples$" ParameterType="int" />
+          </OverrideableParameters>
+          <MonitorImplementation>
+            <MemberModules>
+              <DataSource ID="DataSource" TypeID="System!System.ProcessInformationProvider">
+                <Frequency>$Config/Frequency$</Frequency>
+              </DataSource>
+              <ConditionDetection ID="ProcessCountAboveMinimumCondition" TypeID="System!System.ExpressionFilter">
+				  <Expression>
+					<And>
+					  <Expression>
+						<Exists>
+						  <ValueExpression>
+							<XPathQuery Type="UnsignedInteger">ProcessInformations/ProcessInformation[./ProcessName ='$Config/ProcessName$']/ActiveInstanceCount</XPathQuery>
+						  </ValueExpression>
+						</Exists>
+					  </Expression>
+					  <Expression>
+						<SimpleExpression>
+						  <ValueExpression>
+							<XPathQuery Type="UnsignedInteger">ProcessInformations/ProcessInformation[./ProcessName ='$Config/ProcessName$']/ActiveInstanceCount</XPathQuery>
+						  </ValueExpression>
+						  <Operator>GreaterEqual</Operator>
+						  <ValueExpression>
+							<Value Type="UnsignedInteger">$Config/MinProcessCount$</Value>
+						  </ValueExpression>
+						</SimpleExpression>
+					  </Expression>
+					</And>
+				  </Expression>
+              </ConditionDetection>
+              <ConditionDetection ID="ProcessCountUnderMinimumCondition" TypeID="System!System.ExpressionFilter">
+				  <Expression>
+					<Not>
+					  <Expression>
+						<And>
+						  <Expression>
+							<Exists>
+							  <ValueExpression>
+								<XPathQuery Type="UnsignedInteger">ProcessInformations/ProcessInformation[./ProcessName ='$Config/ProcessName$']/ActiveInstanceCount</XPathQuery>
+							  </ValueExpression>
+							</Exists>
+						  </Expression>
+						  <Expression>
+							<SimpleExpression>
+							  <ValueExpression>
+								<XPathQuery Type="UnsignedInteger">ProcessInformations/ProcessInformation[./ProcessName ='$Config/ProcessName$']/ActiveInstanceCount</XPathQuery>
+							  </ValueExpression>
+							  <Operator>GreaterEqual</Operator>
+							  <ValueExpression>
+								<Value Type="UnsignedInteger">$Config/MinProcessCount$</Value>
+							  </ValueExpression>
+							</SimpleExpression>
+						  </Expression>
+						</And>
+					  </Expression>
+					</Not>
+				  </Expression>
+				  <SuppressionSettings>
+					<MatchCount>$Config/Samples$</MatchCount>
+				  </SuppressionSettings>			  
+              </ConditionDetection>
+            </MemberModules>
+            <RegularDetections>
+              <RegularDetection MonitorTypeStateID="ProcessCountUnderMinimum">
+                <Node ID="ProcessCountUnderMinimumCondition">
+                  <Node ID="DataSource" />
+                </Node>
+              </RegularDetection>
+              <RegularDetection MonitorTypeStateID="ProcessCountAboveMinimum">
+                <Node ID="ProcessCountAboveMinimumCondition">
+                  <Node ID="DataSource" />
+                </Node>
+              </RegularDetection>
+            </RegularDetections>
+          </MonitorImplementation>
+        </UnitMonitorType>		
+    </MonitorTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="false" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.MonitorType" ConfirmDelivery="false">
+        <Category>AvailabilityHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>Error</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+          <AlertParameters>
+            <AlertParameter1>$Data[Default='0']/Context/DataItem/Item0Context/DataItem/ProcessInformations/ProcessInformation[./ProcessName ='##ProcessName##']/ActiveInstanceCount$</AlertParameter1>
+			<AlertParameter2>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</AlertParameter2>
+          </AlertParameters>
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="OK" MonitorTypeStateID="ProcessCountAboveMinimum" HealthState="Success" />
+          <OperationalState ID="Error" MonitorTypeStateID="ProcessCountUnderMinimum" HealthState="Warning" />  <!-- HealthState = Warning or Error -->
+        </OperationalStates>
+        <Configuration>
+          <ProcessName>##ProcessName##</ProcessName>    
+          <Frequency>60</Frequency>  <!-- How often to check the existence of the process in SECONDS -->  
+          <MinProcessCount>1</MinProcessCount> <!-- MINIMUM number of processes that should exist -->   
+          <Samples>2</Samples> <!-- The number of consecutive times a process must be inspected under the threshold before changing state of the monitor. 2 samples is the default to limit noise -->  
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>  
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>  
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>  
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor">
+          <Name>##CompanyID## ##AppName## ##ProcessName## Process Monitor</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor" SubElementID="OK">
+          <Name>Process count above the minimum (Success)</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor" SubElementID="Error">
+          <Name>Process count below the minimum (Error)</Name>
+        </DisplayString>
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ProcessCount.Monitor.AlertMessage">
+          <Name>##AppName## ##ProcessName## - Process count is below the minimum expected</Name>
+          <Description>The number of expected processes was below the minimum for process name: (##ProcessName##).
+Process count found: {0} on Computer: {1}.</Description>
+        </DisplayString>
+	  </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

@@ -1,0 +1,672 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  AA MONITOR and custom MONITORTYPE for a service that will generate a state change and Alert based on the monitor state.
+  Includes a recovery script to recover the service.  The recovery is disabled by default.
+  Also includes alert rules based on events from the failure of the recovery script.
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem   
+  ServiceName - must be the short name of the service as seen in the HKLM\SYSTEM\CCS\Services registry
+  UniqueID - We need a Unique ID for this Monitor to reuse the fragment.  If your service name contains spaces - create a shortened ServiceName with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+
+Version: 1.4
+LastModified: 05-Sep-2019
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##ServiceName##
+  ##UniqueID##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+
+@@Author=Kevin Holman@@  
+-->
+  <TypeDefinitions>
+    <MonitorTypes>
+     <UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.Service.MonitorType" Accessibility="Public">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="Running" NoDetection="false" />
+          <MonitorTypeState ID="NotRunning" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration>
+          <xsd:element name="ComputerName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ServiceName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="IntervalSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="CheckStartupType" minOccurs="0" maxOccurs="1" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Samples" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>		
+        <OverrideableParameters>
+          <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+          <OverrideableParameter ID="CheckStartupType" Selector="$Config/CheckStartupType$" ParameterType="string" />
+          <OverrideableParameter ID="Samples" Selector="$Config/Samples$" ParameterType="int" />
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.Win32ServiceInformationProvider">
+              <ComputerName>$Config/ComputerName$</ComputerName>
+              <ServiceName>$Config/ServiceName$</ServiceName>
+              <Frequency>$Config/IntervalSeconds$</Frequency>
+              <DisableCaching>true</DisableCaching>
+              <CheckStartupType>$Config/CheckStartupType$</CheckStartupType>
+            </DataSource>
+            <ProbeAction ID="Probe" TypeID="Windows!Microsoft.Windows.Win32ServiceInformationProbe">
+              <ComputerName>$Config/ComputerName$</ComputerName>
+              <ServiceName>$Config/ServiceName$</ServiceName>
+            </ProbeAction>
+            <ConditionDetection ID="ServiceRunning" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <Or>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='StartMode']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">4</Value> <!-- 0=BootStart 1=SystemStart 2=Automatic 3=Manual 4=Disabled -->
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='State']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">4</Value> <!-- 0=Unknown 1=Stopped 2=StartPending 3=StopPending 4=Running 5=ContinuePending 6=PausePending 7=Paused 8=ServiceNotFound 9=ServerNotFound -->
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                </Or>
+              </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="ServiceNotRunning" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <And>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='StartMode']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">4</Value> <!-- 0=BootStart 1=SystemStart 2=Automatic 3=Manual 4=Disabled -->
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='State']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">4</Value> <!-- 0=Unknown 1=Stopped 2=StartPending 3=StopPending 4=Running 5=ContinuePending 6=PausePending 7=Paused 8=ServiceNotFound 9=ServerNotFound -->
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                </And>
+              </Expression>
+              <SuppressionSettings>
+                <MatchCount>$Config/Samples$</MatchCount>
+              </SuppressionSettings>			  
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="Running">
+              <Node ID="ServiceRunning">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="NotRunning">
+              <Node ID="ServiceNotRunning">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+          <OnDemandDetections>
+            <OnDemandDetection MonitorTypeStateID="Running">
+              <Node ID="ServiceRunning">
+                <Node ID="Probe" />
+              </Node>
+            </OnDemandDetection>
+            <OnDemandDetection MonitorTypeStateID="NotRunning">
+              <Node ID="ServiceNotRunning">
+                <Node ID="Probe" />
+              </Node>
+            </OnDemandDetection>
+          </OnDemandDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>
+    </MonitorTypes>	
+  </TypeDefinitions> 
+  <Monitoring>
+	<Rules>
+	  <Rule ID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Alert</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.EventProvider">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <LogName>Operations Manager</LogName>
+            <Expression>
+              <And>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="UnsignedInteger">3751</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">PublisherName</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="String">Health Service Script</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+				<Expression>
+                  <RegExExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">Params/Param[2]</XPathQuery>
+                    </ValueExpression>
+                    <Operator>ContainsSubstring</Operator>
+                    <Pattern>##ServiceName##</Pattern>
+                  </RegExExpression>
+                </Expression>
+              </And>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>  <!-- 0=Low 1=Medium 2=High -->
+            <Severity>2</Severity>  <!-- 0=Information 1=Warning 2=Critical -->
+            <AlertName />
+            <AlertDescription />
+            <AlertOwner />
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/EventDescription$</AlertParameter1>
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data[Default='']/EventDisplayNumber$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/PublisherName$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/LoggingComputer$</SuppressionValue>
+            </Suppression>
+            <Custom1 />
+            <Custom2 />
+            <Custom3 />
+            <Custom4 />
+            <Custom5 />
+            <Custom6 />
+            <Custom7 />
+            <Custom8 />
+            <Custom9 />
+            <Custom10 />
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Alert</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.EventProvider">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <LogName>Operations Manager</LogName>
+            <Expression>
+              <And>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="UnsignedInteger">3752</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">PublisherName</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="String">Health Service Script</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+				<Expression>
+                  <RegExExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">Params/Param[2]</XPathQuery>
+                    </ValueExpression>
+                    <Operator>ContainsSubstring</Operator>
+                    <Pattern>##ServiceName##</Pattern>
+                  </RegExExpression>
+                </Expression>
+              </And>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>  <!-- 0=Low 1=Medium 2=High -->
+            <Severity>2</Severity>  <!-- 0=Information 1=Warning 2=Critical -->
+            <AlertName />
+            <AlertDescription />
+            <AlertOwner />
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/EventDescription$</AlertParameter1>
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data[Default='']/EventDisplayNumber$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/PublisherName$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/LoggingComputer$</SuppressionValue>
+            </Suppression>
+            <Custom1 />
+            <Custom2 />
+            <Custom3 />
+            <Custom4 />
+            <Custom5 />
+            <Custom6 />
+            <Custom7 />
+            <Custom8 />
+            <Custom9 />
+            <Custom10 />
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+	  <Rule ID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Alert</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.EventProvider">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <LogName>Operations Manager</LogName>
+            <Expression>
+              <And>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="UnsignedInteger">3753</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">PublisherName</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="String">Health Service Script</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+				<Expression>
+                  <RegExExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">Params/Param[2]</XPathQuery>
+                    </ValueExpression>
+                    <Operator>ContainsSubstring</Operator>
+                    <Pattern>##ServiceName##</Pattern>
+                  </RegExExpression>
+                </Expression>
+              </And>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>  <!-- 0=Low 1=Medium 2=High -->
+            <Severity>2</Severity>  <!-- 0=Information 1=Warning 2=Critical -->
+            <AlertName />
+            <AlertDescription />
+            <AlertOwner />
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/EventDescription$</AlertParameter1>
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data[Default='']/EventDisplayNumber$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/PublisherName$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/LoggingComputer$</SuppressionValue>
+            </Suppression>
+            <Custom1 />
+            <Custom2 />
+            <Custom3 />
+            <Custom4 />
+            <Custom5 />
+            <Custom6 />
+            <Custom7 />
+            <Custom8 />
+            <Custom9 />
+            <Custom10 />
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+	  <Rule ID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Alert</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.EventProvider">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <LogName>Operations Manager</LogName>
+            <Expression>
+              <And>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="UnsignedInteger">3754</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+                <Expression>
+                  <SimpleExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">PublisherName</XPathQuery>
+                    </ValueExpression>
+                    <Operator>Equal</Operator>
+                    <ValueExpression>
+                      <Value Type="String">Health Service Script</Value>
+                    </ValueExpression>
+                  </SimpleExpression>
+                </Expression>
+				<Expression>
+                  <RegExExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">Params/Param[2]</XPathQuery>
+                    </ValueExpression>
+                    <Operator>ContainsSubstring</Operator>
+                    <Pattern>##ServiceName##</Pattern>
+                  </RegExExpression>
+                </Expression>
+              </And>
+            </Expression>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>  <!-- 0=Low 1=Medium 2=High -->
+            <Severity>2</Severity>  <!-- 0=Information 1=Warning 2=Critical -->
+            <AlertName />
+            <AlertDescription />
+            <AlertOwner />
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/EventDescription$</AlertParameter1>
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data[Default='']/EventDisplayNumber$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/PublisherName$</SuppressionValue>
+              <SuppressionValue>$Data[Default='']/LoggingComputer$</SuppressionValue>
+            </Suppression>
+            <Custom1 />
+            <Custom2 />
+            <Custom3 />
+            <Custom4 />
+            <Custom5 />
+            <Custom6 />
+            <Custom7 />
+            <Custom8 />
+            <Custom9 />
+            <Custom10 />
+          </WriteAction>
+        </WriteActions>
+      </Rule>	  
+    </Rules>  
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.Service.MonitorType" ConfirmDelivery="false">
+        <Category>AvailabilityHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState> <!-- Warning/Error - This must match a possible OperationalState\HealthState below -->
+          <AutoResolve>true</AutoResolve> <!-- true/false -->
+          <AlertPriority>Normal</AlertPriority> <!-- Low/Normal/High -->
+          <AlertSeverity>Error</AlertSeverity> <!-- Error/Warning/Information/MatchMonitorHealth -->
+          <AlertParameters>
+            <AlertParameter1>$Data/Context/Property[@Name='Name']$</AlertParameter1>
+            <AlertParameter2>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</AlertParameter2>
+          </AlertParameters>
+        </AlertSettings>		
+        <OperationalStates>
+          <OperationalState ID="Running" MonitorTypeStateID="Running" HealthState="Success" /> <!-- HealthState can be Error/Warning/Success -->
+          <OperationalState ID="NotRunning" MonitorTypeStateID="NotRunning" HealthState="Warning" /> <!-- HealthState can be Error/Warning/Success -->
+        </OperationalStates>
+        <Configuration>
+          <ComputerName />
+          <ServiceName>##ServiceName##</ServiceName> <!-- This is the service name as seen in the registry at HKLM\SYSTEM\CCS\Services -->
+          <IntervalSeconds>30</IntervalSeconds> <!-- How often to check the state of the service.  Every 30 seconds is the default.-->
+          <CheckStartupType>true</CheckStartupType>
+          <Samples>2</Samples> <!-- The number of consecutive times a service is detected as not running before changing state of the monitor. 2 samples is the default -->
+        </Configuration>		
+      </UnitMonitor>	  
+    </Monitors>
+    <Recoveries>
+      <Recovery ID="##CompanyID##.##AppName##.##UniqueID##.Service.Recovery" Accessibility="Public" Enabled="false" Target="##ClassID##" Monitor="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor" ResetMonitor="false" ExecuteOnState="Warning" Remotable="true" Timeout="300">
+        <Category>Custom</Category>
+		<WriteAction ID="PSWA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+		  <ScriptName>##CompanyID##.##AppName##.##UniqueID##.Service.Recovery.ps1</ScriptName>
+		  <ScriptBody>
+#=================================================================================
+#  Script to restart a service
+#
+#  Author:  Kevin Holman
+#
+#  Version:  1.0
+#
+#=================================================================================
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $ServiceName = "spooler"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.Service.Recovery.ps1"
+$EventID = "3750"
+#=================================================================================
+
+
+# Starting Script section
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+
+[string]$ServiceName = "##ServiceName##"
+
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Recovery script for service: ($ServiceName) is starting. `n Running as ($whoami).")
+write-host "Recovery script for service: ($ServiceName) is starting. Running as ($whoami)."
+
+#Get the service object
+$Svc = Get-Service $ServiceName
+
+#Check to ensure the service exists:
+IF (!$Svc)
+{
+  $momapi.LogScriptEvent($ScriptName,3751,2, "`n Service ($ServiceName) was not found on this computer. `n This indicates a misconfiguration of the monitor. `n Error is ($error)")
+  write-host "Service ($ServiceName) was not found on this computer. This indicates a misconfiguration of the monitor. Error is ($error)"
+  EXIT
+}
+
+#Get Service Status:
+[string]$SvcStatus = $Svc.Status
+
+#Do not continue is service is already running
+IF ($SvcStatus -eq "Running")
+{
+  $momapi.LogScriptEvent($ScriptName,3752,2, "`n Service ($ServiceName) was found to be in the Running state. `n This indicates a misconfiguration of the monitor. `n No recovery action will be taken.")
+  write-host "Service ($ServiceName) was found to be in the Running state. This indicates a misconfiguration of the monitor. No recovery action will be taken."
+  EXIT  
+}
+
+#Log recovery information event
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) was found to be in the ($SvcStatus) state.  Recovery will be attempted.")
+write-host "Service: ($ServiceName) was found to be in the ($SvcStatus) state.  Recovery will be attempted."
+
+#Attempt First Recovery
+Restart-Service -Name $ServiceName -Force
+#Wait time in seconds
+Start-Sleep 20
+#Get the service object
+$Svc = Get-Service $ServiceName
+#Get Service Status:
+$SvcStatus = $Svc.Status
+
+IF ($SvcStatus -ne "Running")
+{
+  #Attempt Second Recovery
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) second attempt at recovering starting now.")
+  write-host "Service: ($ServiceName) second attempt at recovering starting now."  
+  Restart-Service -Name $ServiceName -Force
+  Start-Sleep 20
+  $Svc = Get-Service $ServiceName
+  $SvcStatus = $Svc.Status 
+}
+
+IF ($SvcStatus -ne "Running")
+{
+  #Attempt Third Recovery
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) third attempt at recovering starting now.")
+  write-host "Service: ($ServiceName) third attempt at recovering starting now."    
+  Restart-Service -Name $ServiceName -Force
+  Start-Sleep 20
+  $Svc = Get-Service $ServiceName
+  $SvcStatus = $Svc.Status 
+}
+
+IF ($SvcStatus -eq "Running")
+{
+  #Log event of a successful restart
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) was successfully restarted and then detected to be in the Running state.")
+  write-host "Service: ($ServiceName) was successfully restarted and then detected to be in the Running state."
+}
+ELSE
+{
+  #Log event of a successful restart
+  $momapi.LogScriptEvent($ScriptName,3753,2,"`n Service: ($ServiceName) is not running. `n Recovery was attempted and failed. `n Manual interventon is required. `n The last detected service status was ($SvcStatus).") 
+  write-host "Service: ($ServiceName) is not running. Recovery was attempted and failed. Manual interventon is required. The last detected service status was ($SvcStatus)."
+}
+
+# Check to see if this recovery script has been run multiple times in the last x minutes for detection of too many recovery actions
+$Message = "*($ServiceName) is starting*"
+$Events = Get-EventLog -LogName 'Operations Manager' -After $StartTime.AddMinutes(-60) -Message $Message | where {$_.EventID -eq 3750}
+$EventCount = $Events.Count
+IF ($EventCount -ge 3)
+{
+  $momapi.LogScriptEvent($ScriptName,3754,2,"`n Too many service recoveries have been attempted for ($ServiceName). `n ($EventCount) recoveries are detected in the event log. `n Manual interventon is required.")
+  write-host "Too many service recoveries have been attempted for ($ServiceName). ($EventCount) recoveries are detected in the event log. Manual interventon is required."
+}
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+write-host "Script Completed. Script Runtime: ($ScriptTime) seconds."
+#=================================================================================
+# End of script		  
+		  </ScriptBody>
+		  <TimeoutSeconds>240</TimeoutSeconds>
+		</WriteAction>
+      </Recovery>
+    </Recoveries> 
+  </Monitoring>	
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor.AlertMessage" />	
+	  <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule.AlertMessage" />
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule.AlertMessage" />
+	  <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule.AlertMessage" />
+	  <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule.AlertMessage" />	  
+    </StringResources>
+  </Presentation> 
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Monitor</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor" SubElementID="Running">
+          <Name>Running</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor" SubElementID="NotRunning">
+          <Name>Not Running</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor.AlertMessage">
+          <Name>##AppName## ##ServiceName## Service Is Not Running</Name>
+          <Description>The Service: {0} is not running on Computer: {1}</Description>
+        </DisplayString>		
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Recovery">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Recovery</Name>
+        </DisplayString>
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Recovery Failed - Service Not Found Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule.AlertMessage">
+          <Name>##AppName## ##ServiceName## Service Recovery Failed - Service Not Found</Name>
+          <Description>Event Description: {0}</Description>
+        </DisplayString>		  
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Recovery Failed - Service Already Running Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule.AlertMessage">
+          <Name>##AppName## ##ServiceName## Service Recovery Failed - Service Already Running</Name>
+          <Description>Event Description: {0}</Description>
+        </DisplayString>
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Recovery Failed - Service is not running Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule.AlertMessage">
+          <Name>##AppName## ##ServiceName## Service Recovery Failed - Service is not running</Name>
+          <Description>Event Description: {0}</Description>
+        </DisplayString>
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule">
+          <Name>##CompanyID## ##AppName## ##ServiceName## Service Recovery has attempted to recover the service too many times Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule.AlertMessage">
+          <Name>##AppName## ##ServiceName## Service Recovery has attempted to recover the service too many times</Name>
+          <Description>Event Description: {0}</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
