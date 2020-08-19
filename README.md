@@ -4,4 +4,178 @@ SCOM - Management Pack VSAE and Silect Fragment Library
 https://kevinholman.com/2016/06/04/authoring-management-packs-the-fast-and-easy-way-using-visual-studio/
 
 Version History:
-* 4.4 Released 10/13/2019
+* 1.0 - (5-29-2016)
+	original release
+* 1.1 - Major updates, added comments, new frags, bug fixes
+* 1.2 - Added new frags:
+		Generic.Monitor.RegistryKey.Exists.Fragment.mpx
+		Generic.Monitor.RegistryValue.Exists.Fragment.mpx
+		Generic.Monitor.RegistryValue.Content.Fragment.mpx
+		Generic.Class.And.Discovery.SNMP.Device.byOID.Fragment.mpx
+		Generic.Monitor.SNMP.Poll.OIDValue.Integer.Performance.Fragment.mpx
+		Generic.Rule.AlertGenerating.SNMPTrap.AlertOnOID.Fragment.mpx
+		Generic.Class.Group.ClassInstances.WithRollup.Fragment.mpx
+* 1.3 - Bug fixes in:
+		Generic.Monitor.RegistryValue.Content.Fragment.mpx
+		Generic.Monitor.Service.WithRecovery.WithAlertRules.Fragment.mpx
+* 1.4 - ()
+	Renamed/Shortended all Fragment names
+      	Updated the Empty Fragment to have structure examples for proper ordering
+      	Fixed Powershell script monitor bugs
+      	Added new frags:
+		Monitor.Process.mpx
+		Class.And.Discovery.Script.PowerShell.mpx
+		Class.And.Discovery.Script.VBScript.mpx
+* 1.5 - ()
+	Minor bug fixes
+	Added new frags:
+		Class.And.Discovery.WMIQuery.mpx
+		Rule.AlertGenerating.TextLog.Fragment.mpx
+		Monitor.Service.WithAlert.IgnoreDisabled.mpx
+		Monitor.TimedScript.PowerShell.SQLQuery.mpx
+* 1.6 - (3-5-2017)
+	MAJOR updates
+		New format for comment section to support MPAuthor Pro
+		Bug fixes and comments added to all Fragments
+		Removed default language setting in LanguagePacks section
+	Added New Frags:
+		Monitor.Performance.ConsecSamples.ThenScript.TwoState.mpx
+		Rule.TimedScript.PowerShell.mpx
+* 1.7 - (3-10-2017)
+	Minor Bug fixes
+	Added new frags:
+		Class.And.Discovery.Unix.FileExists.mpx
+		Monitor.Unix.ShellCommand.mpx
+* 1.8 - (3-22-2017)
+	Minor bug fixes
+	Added new frags:
+		Rule.AlertGenerating.SNMPTrap.AlertOnOIDandVarbind.mpx
+	Changed LanguagePack ENU IsDefault=true for all fragments
+* 1.9 - (5-29-2017)
+	Changed comment section to a new standard format to better support Silect MP Author Pro
+	Changed Monitor.RegistryValue.Content.mpx to Monitor.RegistryValue.Content.Regex.mpx
+	Added new frags:
+		Monitor.RegistryValue.Content.Simple.mpx
+		Task.Agent.Command.mpx
+		Task.Agent.PowerShell.NoParams.mpx
+		Task.Agent.PowerShell.WithParams.mpx
+		Task.Agent.VBScript.mpx
+		Task.Console.mpx
+* 2.0 - (6-5-2017)
+	Updated 4 Registry Monitors to work correctly with MPAuthor
+* 2.1 - (8-12-2017)
+	Added new frags:
+		Monitor.Service.WithAlert.FreqAndSamples.mpx for service monitoring example with overrides for frequency and samples
+* 2.2 - (8-13-2017)
+	Changed Rule.TimedScript.PowerShell.mpx to Rule.TimedScript.PowerShell.NoParams.mpx
+	Updated default example script in Rule.TimedScript.PowerShell.NoParams.mpx
+	Added new frags:
+		Rule Rule.TimedScript.PowerShell.WithParams.mpx
+* 2.3 - (8-13-2017)
+	Updated comments to streamline for reading in MP Author pro in all frags
+	Added new frags:
+		Rule.AlertGenerating.TimedScript.Powershell.NoParams.mpx
+		Rule.AlertGenerating.TimedScript.Powershell.WithParams.mpx
+* 2.4 - (8-26-2017)
+	Added new frags:
+		Class.Group.ADGroupWindowsComputers.mpx
+* 2.5 - (9-5-2017)
+	Improved error handling and logging for Class.Group.ADGroupWindowsComputers.mpx for when a DNS name is not found for a computer object
+* 2.6 - (10-10-2017)
+	Fixed timeout issues with Class.Group.ADGroupWindowsComputers.mpx and Class.Group.SQLQueryBasedGroupWindowsComputers.mpx making them run much faster with improved logging
+	Fixed bug in double quotes around script name in Rule.Performance.Collection.PowerShellScript.mpx
+* 3.0 - (11-5-2017)
+	New fragments:
+		Class.And.Discovery.Registry.KeyExists.With.Properties.mpx
+		Class.And.Discovery.Registry.ValueExists.With.Properties.mpx
+	Major update to comments section in all fragments.
+	Added ##UniqueID## to many fragments to allow for multiple reuse of the same fragment over and over in the same management pack
+	Updated several powershell script fragments to be more standardized.
+* 3.1 - (12-11-2017)
+	New Fragments:
+		Rule.TimedScript.PowerShell.OverrideableParams.mpx
+	Bug fixes for:
+		Class.And.Discovery.Script.PowerShell.mpx
+		Class.And.Discovery.Script.VBScript.mpx
+* 3.2 - (12-11-2017)
+	New Fragments:
+		Rule.TextLog.ScriptResponse.mpx
+3.3 - (10-14-2018)
+	New Fragments:
+		Folder.State.Alert.Views.mpx
+		Monitor.Service.Alert.PSRecovery.AlertRules.FreqSamples.IgnoreDisabled.mpx
+	Bug Fixes for:
+		All service monitors now use UniqueID
+* 3.4 - (11-20-2018)
+	New Fragments:
+		Class.Group.PowerShellWindowsComputers.mpx
+		Rule.AlertGenerating.EventLog.TwoCorrelatedEvents.mpx		
+		Combo.Class.Discovery.ServiceMonitor.Recovery.mpx
+		Combo.Class.Discovery.ServiceMonitor.Recovery.ComputerWatcherGroup.Views.Folder.mpx
+	Bug Fixes for:
+		Minor fixes in displaystrings and IDs for consistency across fragments
+* 3.5 - (12-10-2018)
+	New Fragments:
+		Class.And.Discovery.ClusteredApp.RegistrySeed.mpx
+		Combo.Class.Discovery.ClusteredApp.RegistrySeed.ComputerWatcherGroup.Views.Folder.mpx
+* 3.6 - (1-22-2019)
+	New Fragments:
+		Class.And.Discovery.Script.PowerShell.Params.mpx
+* 3.7 - (1-27-2019)
+	New Fragments:
+		Rule.TimedScript.PowerShellDS.Filter.PowerShellWA.mpx
+* 3.8 - (2-12-2019)
+	New Fragments:
+		Monitor.TimedScript.PowerShell.FolderFilesChanged.mpx
+		Folder.mpx
+	Bug Fixes for:
+		Added UniqueID to class and discovery workflows to allow reuse in the same MP
+* 3.9 - (6-07-2019)
+	New Fragments:
+		Monitor.TimedScript.PowerShell.FileAge.mpx
+		Monitor.TimedScript.PowerShell.WithParams.mpx
+		Class.And.Discovery.Unix.CatFileProperties.mpx
+	Bug Fixes:
+		Multiple fragments - fixing displaynames, enhancing scripts
+* 4.0 - (07-25-2019)
+	New Fragments:
+		Class.Group.SQLQueryBasedGroupWindowsComputersAndWatchers.mpx
+		Rule.AlertGenerating.EventLog.EventIdEquals.mpx
+		Rule.AlertGenerating.EventLog.EventIdEquals.SourceEquals.DescriptionContains.mpx
+		Rule.AlertGenerating.EventLog.EventIdEquals.SourceEquals.mpx
+		Rule.AlertGenerating.EventLog.EventIdExpression.DescriptionContains.mpx
+		Rule.AlertGenerating.EventLog.EventIdExpression.mpx
+		Rule.AlertGenerating.EventLog.EventIdExpression.SourceEquals.DescriptionContains.mpx
+		Rule.AlertGenerating.EventLog.EventIdEquals.DescriptionContains.mpx
+		Rule.AlertGenerating.EventLog.EventIdExpression.SourceEquals.mpx
+		Class.And.Discovery.Script.ByServerName.mpx
+	Bug Fixes:
+		Class.And.Discovery.Script.PowerShell.Params.mpx
+* 4.1 - (08-25-2019)
+	Bug Fixes:
+		Rule.AlertGenerating.TextLog.Fragment.mpx
+		Monitor.Service.WithRecovery.WithAlertRules.mpx
+* 4.2 - (08-31-2019)
+	New Fragments:
+		Class.And.Discovery.MultiRole.mpx
+		Class.And.Discovery.MultiRoleHostedByParentClass.mpx
+		Class.And.Discovery.Registry.ValueSimpleExpression.mpx
+		Class.And.Discovery.Registry.ValueRegExpression.mpx
+		Views.Alert.mpx
+		Views.State.mpx
+	Bug Fixes:
+		Multiple fragments mostly just making XML syntax more consistent with all fragments
+* 4.3 - (09-05-2019)
+	New Fragments:
+		Combo.Class.Discovery.ServiceMonitor.Wildcard.WMIQuery.mpx
+		Monitor.Service.WithAlert.FreqAndSamples.IgnoreDisabled.mpx
+		Monitor.Service.WithAlert.FreqAndSamples.IgnoreDisabled.PSRecovery.mpx
+	Bug Fixes:
+		Streamlined all service monitor fragments to be more consistent and understandable
+		Removed redundant service monitor fragments
+* 4.4 - (11-13-2019)
+	New Fragments:
+		Rule.TimedScript.DistributeFile.mpx
+	Bug Fixes:
+		Enhanced Monitor.Process.mpx to use MatchCount and enforce lower case process name
+		Enhanced Monitor.Performance.ConsecSamples.ThenScript.TwoState.mpx CPU example and fixed core count mistake
