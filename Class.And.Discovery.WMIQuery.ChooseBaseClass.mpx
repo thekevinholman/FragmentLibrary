@@ -1,0 +1,80 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!-- 
+%%
+Description:
+  A CLASS and DISCOVERY to discover instances based on boolean output of a WMI query.
+  This Fragment allows you to choose a custom base class such as a seed class
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  As long as the query returns SOMETHING we will populate an instance of the class.  The WMI query should only return ONE object.
+	
+Version: 1.0
+LastModified: 20-May-2020
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##
+  ##WMIQuery##
+  ##ClassID##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+	
+@@Author=Kevin Holman@@
+-->
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Accessibility="Public" Abstract="false" Base="##ClassID##" Hosted="true" Singleton="false" Extension="false" />
+      </ClassTypes>
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery" Enabled="true" Target="Windows!Microsoft.Windows.Server.OperatingSystem" ConfirmDelivery="false" Remotable="false" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.WmiProviderWithClassSnapshotDataMapper">
+          <NameSpace>root\cimv2</NameSpace>
+          <Query><![CDATA[##WMIQuery##]]></Query>
+		  <!-- Example query here:  <Query><![CDATA[select * from Win32_Service where Name = 'spooler' and startmode = 'Manual']]></Query> -->
+          <Frequency>14400</Frequency> <!-- seconds -->
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.Class"]$</ClassId>
+          <InstanceSettings>
+            <Settings>
+              <Setting>
+                <Name>$MPElement[Name="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="System!System.Entity"]/DisplayName$</Name>
+                <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+              </Setting>
+              <!-- If you have additional class properties you want to provide values from WMI add them here as additional instance settings. -->
+            </Settings>
+          </InstanceSettings>
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class Discovery</Name>
+          <Description />
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

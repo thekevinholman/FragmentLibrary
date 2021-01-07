@@ -5,22 +5,25 @@ Description:
   A RULE to ALERT on two specific EventID and Event Sources observed together within a specified time frame
   CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
   AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
-  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem   
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem  
+  LogName - is the Event Log Name (System, Application, Operations Manager, etc)  
+  EventID - is a SINGLE event ID for an explicit EQUALS match
+  EventSource - is a string based Event Source for an explicit EQUALS match  
 
-Version: 1.0
-LastModified: 2-Nov-2018
+Version: 1.1
+LastModified: 2-Jun-2020
 %%
 
 In this fragment you need to replace:
   ##CompanyID##
   ##AppName##
   ##ClassID##
-  ##EventID1##
-  ##EventID2##  
-  ##EventSource1##
-  ##EventSource2##  
   ##LogName1##
-  ##LogName2##  
+  ##EventID1##
+  ##EventSource1##
+  ##LogName2##
+  ##EventID2##  
+  ##EventSource2##  
 
 This fragment depends on references:
   RequiredReference: Alias="System", ID="System.Library"
@@ -115,10 +118,10 @@ This fragment depends on references:
             <AlertParameters>
               <AlertParameter1>$Data[Default='']/Item0Context/DataItem/EventDisplayNumber$</AlertParameter1>
               <AlertParameter2>$Data[Default='']/Item0Context/DataItem/EventSourceName$</AlertParameter2>
-							<AlertParameter3>$Data[Default='']/Item0Context/DataItem/EventDescription$</AlertParameter3>
+              <AlertParameter3>$Data[Default='']/Item0Context/DataItem/EventDescription$</AlertParameter3>
               <AlertParameter4>$Data[Default='']/Item1Context/DataItem/EventDisplayNumber$</AlertParameter4>
               <AlertParameter5>$Data[Default='']/Item1Context/DataItem/EventSourceName$</AlertParameter5>
-							<AlertParameter6>$Data[Default='']/Item1Context/DataItem/EventDescription$</AlertParameter6>
+              <AlertParameter6>$Data[Default='']/Item1Context/DataItem/EventDescription$</AlertParameter6>
             </AlertParameters>
 			<Suppression/>
           </WriteAction>
@@ -145,9 +148,9 @@ Event 1 ID:  {0}
 Event 1 Source:  {1}
 Event 1 Description: {2}
 
-Event 1 ID:  {3}
-Event 1 Source:  {4}
-Event 1 Description: {5}
+Event 2 ID:  {3}
+Event 2 Source:  {4}
+Event 2 Description: {5}
           </Description>
         </DisplayString>
       </DisplayStrings>

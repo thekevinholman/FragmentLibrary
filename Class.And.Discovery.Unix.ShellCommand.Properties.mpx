@@ -1,0 +1,296 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A CLASS and DISCOVERY for a Unix/Linux application based on the parsed output of a shell command
+  We will parse the StdOut using PowerShell script on the management server to add properties to discovered instances
+  You should customize the Class Properties AND the PowerShell script based on your unique StdOut
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  ShellCommand - The UNIX shell command to create the StdOut we will parse, such as "cat /opt/myapp/myapp.conf"
+	
+Version: 1.0
+LastModified: 02-Mar-2020
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##
+  ##ShellCommand##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="MUL", ID="Microsoft.Unix.Library"
+  RequiredReference: Alias="MSWL", ID="Microsoft.SystemCenter.WSManagement.Library"	
+  
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Accessibility="Public" Abstract="false" Base="MUL!Microsoft.Unix.LocalApplication" Hosted="true" Singleton="false" Extension="false">
+		  <Property ID="AppName" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+          <Property ID="Version" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+          <Property ID="LogPath" Type="string" AutoIncrement="false" Key="false" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />		
+		</ClassType>
+      </ClassTypes>
+    </EntityTypes>
+    <ModuleTypes>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" />
+          <xsd:element minOccurs="1" name="TargetSystem" type="xsd:string" />
+          <xsd:element minOccurs="1" name="ShellCommand" type="xsd:string" />		
+          <xsd:element minOccurs="1" name="TimeOutSeconds" type="xsd:integer" />		  
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeOutSeconds" Selector="$Config/TimeOutSeconds$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.Class.ShellCommandDiscovery.DS">
+                <IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+				<TargetSystem>$Config/TargetSystem$</TargetSystem>
+                <ShellCommand>$Config/ShellCommand$</ShellCommand>
+                <TimeOutSeconds>$Config/TimeOutSeconds$</TimeOutSeconds>
+              </DataSource>
+              <ProbeAction ID="PSDisco" TypeID="Windows!Microsoft.Windows.PowerShellDiscoveryProbe">
+                <ScriptName>##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.DS.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  PowerShell Discovery Script to parse StdOut from a Linux Shell Command
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param($SourceId,$ManagedEntityId,$TargetSystem,[string]$StdOut)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# [string]$StdOut = "STUFF=foo
+#LOGPATH=/var/log/myapp.log
+#VERSION=2.21.30
+#FOO=stuff"
+#  $TargetSystem = "ubuntu.opsmgr.net"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.Class.ShellCommandDiscovery.DS.ps1"
+$EventID = "6699"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#=================================================================================
+
+
+# Discovery Script section - Discovery scripts get this
+#=================================================================================
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+# Log an event for the script starting			  
+$momapi.LogScriptEvent($ScriptName,$EventID,0, "`nScript is starting. `nUNIX Computer: ($TargetSystem) `nRunning, as ($WhoAmI). `nStdOut: ($StdOut)")
+
+#Continue only if we got output from shell command operation
+IF ($StdOut -ne $null -and $StdOut -ne "0" -and $StdOut -ne "")
+{
+  $StdOutSplit = $StdOut -split "`n"
+  
+  [string]$VersionLine = ($StdOutSplit | Select-String -Pattern 'VERSION=' | select -expand line)
+  IF (!($VersionLine))
+  {
+    $Version = "NOT FOUND"
+  }
+  ELSE
+  {
+    $VersionLineSplit = $VersionLine.Split("=")
+    [string]$Version = $VersionLineSplit[1]
+    $Version = $Version.Trim()
+  }
+
+  [string]$LogPathLine = ($StdOutSplit | Select-String -Pattern 'LOGPATH=' | select -expand line)
+  IF (!($LogPathLine))
+  {
+    $LogPath = "NOT FOUND"
+  }
+  ELSE
+  {
+    $LogPathLineSplit = $LogPathLine.Split("=")
+    [string]$LogPath = $LogPathLineSplit[1]
+    $LogPath = $LogPath.Trim()
+  }
+
+  $momapi.LogScriptEvent($ScriptName,$EventID,0, "`nReturning discovery data for UNIX Computer: ($TargetSystem) `nVersion: ($Version). `nLogPath:  ($LogPath)")
+  
+  # Create discovery data 
+  $instance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']$")
+  $instance.AddProperty("$MPElement[Name='MUL!Microsoft.Unix.Computer']/PrincipalName$", $TargetSystem)
+  $instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/AppName$", "##UniqueID##")
+  $instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/Version$", $Version)
+  $instance.AddProperty("$MPElement[Name='##CompanyID##.##AppName##.##UniqueID##.Class']/LogPath$", $LogPath)
+  $instance.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$", $TargetSystem)
+  $DiscoveryData.AddInstance($instance)
+}
+ELSE
+{
+  # Log an event the StdOut was NULL
+  $momapi.LogScriptEvent($ScriptName,$EventID,0, "StdOut was NULL.  Did not get any data from UNIX Shell Command")
+}
+
+# Return Discovery Items Normally
+$DiscoveryData
+
+# Return Discovery Bag to the command line for testing (does not work from ISE):
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script			
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>SourceID</Name>
+                    <Value>$MPElement$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>ManagedEntityID</Name>
+                    <Value>$Target/Id$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>TargetSystem</Name>
+                    <Value>$Config/TargetSystem$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>StdOut</Name>
+                    <Value>$Data///*[local-name()="StdOut"]$</Value>
+                  </Parameter>
+			    </Parameters>
+                <TimeoutSeconds>300</TimeoutSeconds>
+              </ProbeAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="PSDisco">
+                <Node ID="DS" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.Discovery.Data</OutputType>
+      </DataSourceModuleType>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.Class.ShellCommandDiscovery.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" />
+          <xsd:element minOccurs="1" name="TargetSystem" type="xsd:string" />		  
+          <xsd:element minOccurs="1" name="ShellCommand" type="xsd:string" />
+          <xsd:element minOccurs="1" name="TimeOutSeconds" type="xsd:integer" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeOutSeconds" Selector="$Config/TimeOutSeconds$" ParameterType="int" />
+        </OverrideableParameters>		
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+                <Scheduler>
+                  <SimpleReccuringSchedule>
+                    <Interval>$Config/IntervalSeconds$</Interval>
+                  </SimpleReccuringSchedule>
+                  <ExcludeDates />
+                </Scheduler>
+              </DataSource>
+              <ProbeAction ID="ProbeAction" TypeID="MUL!Microsoft.Unix.WSMan.Invoke.ProbeAction">
+                <TargetSystem>$Config/TargetSystem$</TargetSystem>
+                <Uri>http://schemas.microsoft.com/wbem/wscim/1/cim-schema/2/SCX_OperatingSystem?__cimnamespace=root/scx</Uri>
+                <Selector />
+                <InvokeAction>ExecuteShellCommand</InvokeAction>
+                <Input>&lt;p:ExecuteShellCommand_INPUT xmlns:p="http://schemas.microsoft.com/wbem/wscim/1/cim-schema/2/SCX_OperatingSystem"&gt;&lt;p:command&gt;$Config/ShellCommand$&lt;/p:command&gt;&lt;p:timeout&gt;$Config/TimeOutSeconds$&lt;/p:timeout&gt;&lt;/p:ExecuteShellCommand_INPUT&gt;</Input>
+              </ProbeAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="ProbeAction">
+                <Node ID="Scheduler" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>MSWL!Microsoft.SystemCenter.WSManagement.WSManData</OutputType>
+      </DataSourceModuleType>
+    </ModuleTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery" Enabled="true" Target="MUL!Microsoft.Unix.Computer" ConfirmDelivery="true" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" >
+            <Property TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" PropertyID="AppName" />
+			<Property TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" PropertyID="Version" />
+            <Property TypeID="##CompanyID##.##AppName##.##UniqueID##.Class" PropertyID="LogPath" />
+		  </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery.DS">
+          <IntervalSeconds>86400</IntervalSeconds>
+		  <TargetSystem>$Target/Property[Type="MUL!Microsoft.Unix.Computer"]/NetworkName$</TargetSystem>
+		  <ShellCommand>##ShellCommand##</ShellCommand>
+		  <TimeOutSeconds>120</TimeOutSeconds>		  
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class</Name>
+          <Description></Description>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="AppName">
+          <Name>Application Name</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="Version">
+          <Name>Version</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="LogPath">
+          <Name>LogPath</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Class Discovery</Name>
+          <Description></Description>
+        </DisplayString>
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks>   
+</ManagementPackFragment>

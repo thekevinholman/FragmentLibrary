@@ -176,3 +176,22 @@
 	Bug Fixes:
 		Enhanced Monitor.Process.mpx to use MatchCount and enforce lower case process name
 		Enhanced Monitor.Performance.ConsecSamples.ThenScript.TwoState.mpx CPU example and fixed core count mistake
+4.5 - (01-06-2020)
+	New Fragments:
+		Class.And.Discovery.Unix.ShellCommand.Properties.mpx
+		Class.And.Discovery.Unix.ShellCommand.mpx
+		Class.Group.Unix.Computers.mpx
+		Task.Unix.ShellCommand.mpx
+		Class.And.Discovery.WMIQuery.ChooseBaseClass.mpx
+		Class.And.Discovery.Script.PowerShell.FileExists.mpx
+		Combo.Class.Discovery.ServiceMonitor.Wildcard.WMIQuery.PSRecovery.mpx
+		Class.And.Discovery.WMIQuery.FileExists.mpx
+		Monitor.TimedScript.PowerShell.FolderLastWriteTimeOlderThanThreshold.mpx
+		Rule.TextLog.ThenScript.Alert.mpx
+	Bug Fixes and Updates:
+		Class.And.Discovery.MultiRoleHostedByParentClass.mpx
+		Rule.Performance.Collection.Perfmon.mpx
+		Rule.AlertGenerating.EventLog.TwoCorrelatedEvents.mpx
+		Class.And.Discovery.MultiRole.mpx
+		Monitor.Process.mpx
+		Class.And.Discovery.Registry.ValueExists.mpx

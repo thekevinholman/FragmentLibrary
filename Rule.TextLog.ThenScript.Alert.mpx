@@ -1,0 +1,248 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A RULE with a composite datasource to monitor a Text Log file then run a PowerShell script then Alert
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "CountFilesInFolder"  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem     
+  LogFileDirectory - is the folder path that contains the log files.  Example:  C:\logs
+  LogFilePattern - is the filename of the log file or a wildcard to match multiple files.  Example:  MyAppLog.txt or *.txt
+  StringToMatch - is a REGEX string to match on a new line added to the log.  Example:  "error" or "bad[1-9]"
+
+Version: 1.0
+LastModified: 06-Jan-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##  
+  ##ClassID##
+  ##LogFileDirectory##
+  ##LogFilePattern##
+  ##StringToMatch##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"  
+  RequiredReference: Alias="SAL", ID="System.ApplicationLog.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <ModuleTypes>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" name="LogFileDirectory" type="xsd:string" />
+          <xsd:element minOccurs="1" name="LogFilePattern" type="xsd:string" />
+          <xsd:element minOccurs="1" name="Pattern" type="xsd:string" />
+        </Configuration>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="DS" TypeID="AppLog!System.ApplicationLog.GenericLog.FilteredEventProvider">
+                <LogFileDirectory>$Config/LogFileDirectory$</LogFileDirectory>
+                <LogFilePattern>$Config/LogFilePattern$</LogFilePattern>
+                <LogIsUTF8>false</LogIsUTF8>
+                <Expression>
+                  <RegExExpression>
+                    <ValueExpression>
+                      <XPathQuery Type="String">Params/Param[1]</XPathQuery>
+                    </ValueExpression>
+                    <Operator>MatchesRegularExpression</Operator>
+                    <!-- Common options for RegExExpression Operator are "MatchesWildcard" "ContainsSubstring" "MatchesRegularExpression" "DoesNotMatchWildcard" "DoesNotContainSubstring" "DoesNotMatchRegularExpression" -->
+                    <Pattern>$Config/Pattern$</Pattern>
+                    <!-- This can be a string value to match on or a Regex expression or a wildcard with #?*\ -->
+                  </RegExExpression>
+                </Expression>
+              </DataSource>
+              <ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagProbe">
+                <ScriptName>##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.DS.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  Script to get more data from a log file
+#  Modify the script to search for your content in the log or do what you want in powershell after the text is found in the log
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param($LogFileDirectory,$LogFile,$LogFileLine)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $LogFileDirectory = "c:\test\logs"
+# $LogFile = "c:\test\logs\testlog.log"
+# $LogFileLine = "error"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.DS.ps1"
+$EventID = "7333"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami).")
+#=================================================================================
+
+
+# PropertyBag Script section - Monitoring scripts get this
+#=================================================================================
+# Load SCOM PropertyBag function
+$bag = $momapi.CreatePropertyBag()
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Output the script params
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nLogFileDirectory: ($LogFileDirectory). `nLogFile: ($LogFile). `nLogFileLine: ($LogFileLine)")
+
+IF (!(Test-Path $LogFile))
+{
+  #Failed to access file
+  [string]$Message = "Failure accessing LogFile: ($LogFile)."
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFailure accessing LogFile: ($LogFile).")
+}
+ELSE
+{
+  $toparse = $false
+  [string]$Message = ""
+
+  $LogFileContent = Get-Content $LogFile
+  
+  FOREACH ($Line in $LogFileContent)
+  {
+    IF($Line -like "foo*")
+    {
+       $toparse = $true
+    }
+    IF($toparse)
+    {
+      IF($Line -like "bar*")
+      {
+        $toparse= $false
+      }
+      $Message = $Message + $Line + "`n"
+    }
+  }
+}
+
+#Put stuff in propertybags:
+$bag.AddValue('LogFileDirectory',$LogFileDirectory)
+$bag.AddValue('LogFile',$LogFile)
+$bag.AddValue('LogFileLine',$LogFileLine)
+$bag.AddValue('Message',$Message)
+
+
+# Return all bags
+$bag
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>LogFileDirectory</Name>
+                    <Value>$Data/EventData/DataItem/LogFileDirectory$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>LogFile</Name>
+                    <Value>$Data/EventData/DataItem/LogFileName$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>LogFileLine</Name>
+                    <Value>$Data/EventData/DataItem/Params/Param[1]$</Value>
+                  </Parameter>
+                </Parameters>
+                <TimeoutSeconds>120</TimeoutSeconds>
+              </ProbeAction>	
+            </MemberModules>
+            <Composition>
+              <Node ID="PA">
+                <Node ID="DS" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.PropertyBagData</OutputType>
+      </DataSourceModuleType>
+    </ModuleTypes>		
+  </TypeDefinitions>
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Custom</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.DS">
+            <LogFileDirectory>##LogFileDirectory##</LogFileDirectory>
+            <LogFilePattern>##LogFilePattern##</LogFilePattern>
+            <Pattern>##StringToMatch##</Pattern>
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>
+            <Severity>1</Severity>
+            <AlertOwner></AlertOwner>
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/Property[@Name='LogFileDirectory']$</AlertParameter1>
+              <AlertParameter2>$Data/Property[@Name='LogFile']$</AlertParameter2>
+              <AlertParameter3>$Data/Property[@Name='LogFileLine']$</AlertParameter3>
+              <AlertParameter4>$Data/Property[@Name='Message']$</AlertParameter4>							
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data/Property[@Name='LogFileLine']$</SuppressionValue>
+            </Suppression>
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.Rule.AlertMessage" />
+    </StringResources>
+  </Presentation>  
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Logfile Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.LogFileThenScriptThenAlert.Rule.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Logfile String Match</Name>
+          <Description>A matching string was detected in the logfile:
+Logfile Directory: {0} 
+Logfile Name: {1} 
+LogFileLine: {2}
+Message: {3}</Description>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>

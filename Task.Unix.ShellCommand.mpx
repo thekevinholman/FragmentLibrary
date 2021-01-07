@@ -1,0 +1,52 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  An AGENT TASK that will run a PowerShell Script with no Parameters passed to the script
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED   
+  ClassID - is the targeted class such as your custom class
+  TaskName - is a short name for the task with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ShellCommand - This is a standard Linux shell command that will output something  
+
+Version: 1.0
+LastModified: 30-Mar-2020
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##TaskName##
+  ##ShellCommand##
+
+This fragment depends on references:
+  RequiredReference: Alias="MUL", ID="Microsoft.Unix.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+	<Tasks>
+      <Task ID="##CompanyID##.##AppName##.##TaskName##.Task" Accessibility="Public" Enabled="true" Target="##ClassID##" Timeout="120" Remotable="true">
+        <Category>Custom</Category>
+        <ProbeAction ID="PA" TypeID="MUL!Microsoft.Unix.WSMan.Invoke.ProbeAction">
+          <TargetSystem>$Target/Host/Property[Type="MUL!Microsoft.Unix.Computer"]/PrincipalName$</TargetSystem>
+          <Uri>http://schemas.microsoft.com/wbem/wscim/1/cim-schema/2/SCX_OperatingSystem?__cimnamespace=root/scx</Uri>
+          <Selector />
+          <InvokeAction>ExecuteCommand</InvokeAction>
+          <Input>&lt;p:ExecuteShellCommand_INPUT xmlns:p="http://schemas.microsoft.com/wbem/wscim/1/cim-schema/2/SCX_OperatingSystem"&gt;&lt;p:command&gt;##ShellCommand##&lt;/p:command&gt;&lt;p:timeout&gt;120&lt;/p:timeout&gt;&lt;/p:ExecuteShellCommand_INPUT&gt;</Input>
+        </ProbeAction>
+      </Task>		
+	</Tasks>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##TaskName##.Task">
+          <Name>##TaskName## Task</Name>
+        </DisplayString>	  
+      </DisplayStrings>
+      <KnowledgeArticles></KnowledgeArticles>
+    </LanguagePack>
+  </LanguagePacks>   
+</ManagementPackFragment>

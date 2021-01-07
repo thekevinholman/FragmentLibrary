@@ -9,14 +9,13 @@ Description:
   UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "PercentProcessorTime"
 
 
-Version: 1.2
-LastModified: 4-Nov-2017
+Version: 1.3
+LastModified: 31-May-2020
 %%
 
 In this fragment you need to replace:
   ##CompanyID##
   ##AppName##
-  ##ClassID##
   ##UniqueID##
   ##ClassID##
   ##ObjectName##
