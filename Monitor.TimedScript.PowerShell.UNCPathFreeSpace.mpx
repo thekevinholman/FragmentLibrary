@@ -1,0 +1,400 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR with 3 states which runs a timed PowerShell script and inspects a UNC Path for free space percent
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem  
+  UniqueID - Is a unique short description of the monitor purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "MonitorFilesInFolder"
+  IntervalSeconds - How often the script should run
+  UNCPath - a UNC path to inspect such as \\servername\sharename\TEST\Folder
+  WarningThresholdPercent - The threshold in percent free space to set a WARNING state
+  CriticalThreshold - The threshold in percent free space to set a CRITICAL state
+  
+Version: 1.0
+LastModified: 22-March-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##IntervalSeconds##
+  ##UNCPath##
+  ##WarningThresholdPercent##
+  ##CriticalThresholdPercent##
+
+This fragment depends on references:  
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  
+@@Author=Kevin Holman@@    
+--> 
+	<TypeDefinitions>
+		<ModuleTypes>
+			<DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.DS" Accessibility="Internal" Batching="false">
+				<Configuration>
+					<xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="0" name="SyncTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="UNCPath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>	
+					<xsd:element minOccurs="1" name="WarningThresholdPercent" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="CriticalThresholdPercent" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>					
+					<xsd:element minOccurs="1" name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+				</Configuration>
+				<OverrideableParameters>
+					<OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+					<OverrideableParameter ID="SyncTime" Selector="$Config/SyncTime$" ParameterType="string" />
+					<OverrideableParameter ID="UNCPath" Selector="$Config/UNCPath$" ParameterType="string" />
+					<OverrideableParameter ID="WarningThresholdPercent" Selector="$Config/WarningThresholdPercent$" ParameterType="int" />
+					<OverrideableParameter ID="CriticalThresholdPercent" Selector="$Config/CriticalThresholdPercent$" ParameterType="int" />					
+					<OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+				</OverrideableParameters>
+				<ModuleImplementation Isolation="Any">
+					<Composite>
+						<MemberModules>
+							<DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+								<Scheduler>
+									<SimpleReccuringSchedule>
+										<Interval Unit="Seconds">$Config/IntervalSeconds$</Interval>
+										<SyncTime>$Config/SyncTime$</SyncTime>
+									</SimpleReccuringSchedule>
+									<ExcludeDates></ExcludeDates>
+								</Scheduler>
+							</DataSource>
+							<ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagTriggerOnlyProbe">
+								<ScriptName>##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.DS.ps1</ScriptName>
+								<ScriptBody>
+#=================================================================================
+#  Script to inspect Free Space on a UNC path
+#
+#  Author: Kevin Holman
+#
+#  v1.1
+#=================================================================================
+param([string]$UNCPath, [int]$WarningThresholdPercent, [int]$CriticalThresholdPercent)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# [string]$UNCPath = "\\server1\software\temp"
+# [int]$WarningThresholdPercent = 20
+# [int]$CriticalThresholdPercent = 10
+#=================================================================================
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+$ScriptName = "Demo.FreeSpace.UNCFree.Monitor.DataSource.ps1"
+$EventID = "2040"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+# Load PropertyBag function 
+$bag = $momapi.CreatePropertyBag()
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nUNCPath: ($UNCPath). `nWarningThresholdPercent: ($WarningThresholdPercent). `nCriticalThresholdPercent: ($CriticalThresholdPercent). `nRunning as ($whoami).")
+
+# Test to see if the UNC path exists and is reachable and exit with error if this fails
+IF (!(Test-Path $UNCPath))
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR:  The path ($UNCPath) was not reachable.")
+  $bag.AddValue('Result','Critical')
+  $bag.AddValue('Message','UNC Path not found')
+  $bag.AddValue('UNCPath',$UNCPath)
+  $bag.AddValue('WarningThresholdPercent',$WarningThresholdPercent)
+  $bag.AddValue('CriticalThresholdPercent',$CriticalThresholdPercent)
+  # Return all bags
+  $bag
+  EXIT
+}
+
+#Clear any previous errors
+$Error.Clear()
+
+#Create object
+$NetworkObj = New-Object -ComObject WScript.Network
+$NetworkObjMap = $NetworkObj.MapNetworkDrive("W:",$UNCPath)
+$PSDrive = Get-PSDrive W
+[double]$FreeSpaceBytes = $PSDrive.Free
+[int]$FreeSpaceGB = ([math]::Round($FreeSpaceBytes/1000000000))
+[double]$UsedSpaceBytes = $PSDrive.Used
+[double]$TotalSpaceBytes = ($FreeSpaceBytes+$UsedSpaceBytes)
+[int]$TotalSpaceGB = ([math]::Round($TotalSpaceBytes/1000000000))
+
+#Remove temporary drive mapping
+$NetworkObjMap = $NetworkObj.RemoveNetworkDrive("W:")
+
+IF ($TotalSpaceBytes -eq 0)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR:  Unable to calculate free space of the UNC Path: ($UNCPath).")
+  $bag.AddValue('Result','Critical')
+  $bag.AddValue('Message','Unable to gather FreeSpaceBytes or UsedSpaceBytes')
+  $bag.AddValue('UNCPath',$UNCPath)
+  $bag.AddValue('WarningThresholdPercent',$WarningThresholdPercent)
+  $bag.AddValue('CriticalThresholdPercent',$CriticalThresholdPercent)
+  # Return all bags
+  $bag
+  EXIT
+}
+
+# Calculate Percent Free Space
+[int]$PercentFree = ([math]::Round($FreeSpaceBytes/$TotalSpaceBytes*100))
+
+IF ($PercentFree -le $CriticalThresholdPercent)
+{
+  $bag.AddValue('Result','Critical')
+}
+ELSEIF ($PercentFree -gt $CriticalThresholdPercent -and $PercentFree -le $WarningThresholdPercent)
+{
+  $bag.AddValue('Result','Warning')
+}
+ELSEIF ($PercentFree -gt $WarningThresholdPercent)
+{
+  $bag.AddValue('Result','Success')
+}
+ELSE
+{
+  #Something is wrong with the value
+  $bag.AddValue('Result','Critical')
+}
+
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nSuccessfully calculated free space percent: ($PercentFree). `nUNCPath: ($UNCPath).")
+[string]$Message = "Percentage space available is ($PercentFree). FreeSpaceGB: ($FreeSpaceGB). TotalSpaceGB: ($TotalSpaceGB)."
+$bag.AddValue('Message',$Message)
+$bag.AddValue('UNCPath',$UNCPath)
+$bag.AddValue('WarningThresholdPercent',$WarningThresholdPercent)
+$bag.AddValue('CriticalThresholdPercent',$CriticalThresholdPercent)
+# Return all bags
+$bag
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script							
+                </ScriptBody>
+								<Parameters>
+									<Parameter>
+										<Name>UNCPath</Name>
+										<Value>$Config/UNCPath$</Value>									
+									</Parameter>
+									<Parameter>
+										<Name>WarningThresholdPercent</Name>
+										<Value>$Config/WarningThresholdPercent$</Value>									
+									</Parameter>
+									<Parameter>
+										<Name>CriticalThresholdPercent</Name>
+										<Value>$Config/CriticalThresholdPercent$</Value>									
+									</Parameter>									
+								</Parameters>
+								<TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+							</ProbeAction>
+						</MemberModules>
+						<Composition>
+							<Node ID="PA">
+								<Node ID="Scheduler" />
+							</Node>
+						</Composition>
+					</Composite>
+				</ModuleImplementation>
+				<OutputType>System!System.PropertyBagData</OutputType>
+			</DataSourceModuleType>
+		</ModuleTypes>
+		<MonitorTypes>
+			<UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.MonitorType" Accessibility="Internal">
+				<MonitorTypeStates>
+					<MonitorTypeState ID="Success" NoDetection="false" />
+					<MonitorTypeState ID="Warning" NoDetection="false" />
+					<MonitorTypeState ID="Error" NoDetection="false" />					
+				</MonitorTypeStates>
+				<Configuration>
+					<xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="0" name="SyncTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="UNCPath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>	
+					<xsd:element minOccurs="1" name="WarningThresholdPercent" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="CriticalThresholdPercent" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+				</Configuration>
+				<OverrideableParameters>
+					<OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+					<OverrideableParameter ID="SyncTime" Selector="$Config/SyncTime$" ParameterType="string" />
+					<OverrideableParameter ID="UNCPath" Selector="$Config/UNCPath$" ParameterType="string" />
+					<OverrideableParameter ID="WarningThresholdPercent" Selector="$Config/WarningThresholdPercent$" ParameterType="int" />
+					<OverrideableParameter ID="CriticalThresholdPercent" Selector="$Config/CriticalThresholdPercent$" ParameterType="int" />
+					<OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+				</OverrideableParameters>
+				<MonitorImplementation>
+					<MemberModules>
+						<DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.DS">
+							<IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+							<SyncTime>$Config/SyncTime$</SyncTime>
+							<UNCPath>$Config/UNCPath$</UNCPath>
+							<WarningThresholdPercent>$Config/WarningThresholdPercent$</WarningThresholdPercent>
+							<CriticalThresholdPercent>$Config/CriticalThresholdPercent$</CriticalThresholdPercent>							
+							<TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+						</DataSource>
+						<ConditionDetection ID="SuccessFilter" TypeID="System!System.ExpressionFilter">
+							<Expression>
+								<SimpleExpression>
+									<ValueExpression>
+										<XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+									</ValueExpression>
+									<Operator>Equal</Operator>
+									<ValueExpression>
+										<Value Type="String">Success</Value>
+									</ValueExpression>
+								</SimpleExpression>
+							</Expression>
+						</ConditionDetection>
+						<ConditionDetection ID="WarningFilter" TypeID="System!System.ExpressionFilter">
+							<Expression>
+								<SimpleExpression>
+									<ValueExpression>
+										<XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+									</ValueExpression>
+									<Operator>Equal</Operator>
+									<ValueExpression>
+										<Value Type="String">Warning</Value>
+									</ValueExpression>
+								</SimpleExpression>
+							</Expression>
+						</ConditionDetection>
+						<ConditionDetection ID="ErrorFilter" TypeID="System!System.ExpressionFilter">
+							<Expression>
+								<SimpleExpression>
+									<ValueExpression>
+										<XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+									</ValueExpression>
+									<Operator>Equal</Operator>
+									<ValueExpression>
+										<Value Type="String">Critical</Value>
+									</ValueExpression>
+								</SimpleExpression>
+							</Expression>
+						</ConditionDetection>						
+					</MemberModules>
+					<RegularDetections>
+						<RegularDetection MonitorTypeStateID="Success">
+							<Node ID="SuccessFilter">
+								<Node ID="DS" />
+							</Node>
+						</RegularDetection>
+						<RegularDetection MonitorTypeStateID="Warning">
+							<Node ID="WarningFilter">
+								<Node ID="DS" />
+							</Node>
+						</RegularDetection>
+						<RegularDetection MonitorTypeStateID="Error">
+							<Node ID="ErrorFilter">
+								<Node ID="DS" />
+							</Node>
+						</RegularDetection>						
+					</RegularDetections>
+					<OnDemandDetections>
+						<OnDemandDetection MonitorTypeStateID="Success">
+							<Node ID="SuccessFilter">
+								<Node ID="DS" />
+							</Node>
+						</OnDemandDetection>
+						<OnDemandDetection MonitorTypeStateID="Warning">
+							<Node ID="WarningFilter">
+								<Node ID="DS" />
+							</Node>
+						</OnDemandDetection>
+						<OnDemandDetection MonitorTypeStateID="Error">
+							<Node ID="ErrorFilter">
+								<Node ID="DS" />
+							</Node>
+						</OnDemandDetection>						
+					</OnDemandDetections>
+				</MonitorImplementation>
+			</UnitMonitorType>
+		</MonitorTypes>
+	</TypeDefinitions>
+	<Monitoring>
+		<Monitors>
+			<UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.MonitorType" ConfirmDelivery="true">
+				<Category>AvailabilityHealth</Category>
+				<AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.AlertMessage">
+					<AlertOnState>Error</AlertOnState>
+					<AutoResolve>true</AutoResolve>
+					<AlertPriority>Normal</AlertPriority>
+					<AlertSeverity>Error</AlertSeverity>
+					<AlertParameters>
+						<AlertParameter1>$Data/Context/Property[@Name='Result']$</AlertParameter1>
+						<AlertParameter2>$Data/Context/Property[@Name='Message']$</AlertParameter2>
+						<AlertParameter3>$Data/Context/Property[@Name='UNCPath']$</AlertParameter3>
+						<AlertParameter4>$Data/Context/Property[@Name='WarningThresholdPercent']$</AlertParameter4>
+						<AlertParameter5>$Data/Context/Property[@Name='CriticalThresholdPercent']$</AlertParameter5>
+					</AlertParameters>					
+				</AlertSettings>
+				<OperationalStates>
+					<OperationalState ID="Success" MonitorTypeStateID="Success" HealthState="Success" />
+					<OperationalState ID="Warning" MonitorTypeStateID="Warning" HealthState="Warning" />
+					<OperationalState ID="Error" MonitorTypeStateID="Error" HealthState="Error" />					
+				</OperationalStates>
+				<Configuration>
+					<IntervalSeconds>##IntervalSeconds##</IntervalSeconds>
+					<SyncTime></SyncTime>
+					<UNCPath>##UNCPath##</UNCPath>
+					<WarningThresholdPercent>##WarningThresholdPercent##</WarningThresholdPercent>
+					<CriticalThresholdPercent>##CriticalThresholdPercent##</CriticalThresholdPercent>
+					<TimeoutSeconds>120</TimeoutSeconds>
+				</Configuration>
+			</UnitMonitor>
+		</Monitors>
+	</Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor">
+          <Name>##CompanyID## ##AppName## ##UniqueID## UNC Path FreeSpace Monitor</Name>
+          <Description></Description>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor" SubElementID="Success">
+          <Name>Success</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor" SubElementID="Warning">
+          <Name>Warning</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor" SubElementID="Error">
+          <Name>Error</Name>
+        </DisplayString>		
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.UNCPathFreeSpace.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##UniqueID## UNC Path FreeSpace is Low</Name>
+          <Description>##CompanyID## ##AppName## ##UniqueID## UNC Path FreeSpace Monitor
+Result: {0}
+UNCPath: {2}
+WarningThresholdPercent: {3}
+CriticalThresholdPercent: {4}
+Message: {1}</Description>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
