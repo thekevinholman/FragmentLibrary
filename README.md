@@ -203,8 +203,8 @@ Version History:
 		Monitor.Process.mpx
 		Class.And.Discovery.Registry.ValueExists.mpx
 * 4.6 - (06-17-2021)
-	New Fragments:
-		Monitor.TimedScript.PowerShell.FileSize.mpx
-		Monitor.TimedScript.PowerShell.UNCPathFreeSpace.mpx
-	Bug Fixes and Updates:
-		Class.And.Discovery.Script.PowerShell.FileExists.mpx
+*	New Fragments:
+*		Monitor.TimedScript.PowerShell.FileSize.mpx
+*		Monitor.TimedScript.PowerShell.UNCPathFreeSpace.mpx
+*	Bug Fixes and Updates:
+*		Class.And.Discovery.Script.PowerShell.FileExists.mpx
