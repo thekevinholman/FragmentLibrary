@@ -1,4 +1,4 @@
-# FragmentLibrary 4.5
+# FragmentLibrary 4.6
 SCOM - Management Pack VSAE and Silect Fragment Library
 
 ## [Download Here][Download]
@@ -183,7 +183,7 @@ Version History:
 	Bug Fixes:
 		Enhanced Monitor.Process.mpx to use MatchCount and enforce lower case process name
 		Enhanced Monitor.Performance.ConsecSamples.ThenScript.TwoState.mpx CPU example and fixed core count mistake
-* 4.5 - (01-06-2020)
+* 4.5 - (01-06-2021)
 	New Fragments:
 		Class.And.Discovery.Unix.ShellCommand.Properties.mpx
 		Class.And.Discovery.Unix.ShellCommand.mpx
@@ -202,3 +202,9 @@ Version History:
 		Class.And.Discovery.MultiRole.mpx
 		Monitor.Process.mpx
 		Class.And.Discovery.Registry.ValueExists.mpx
+* 4.6 - (06-17-2021)
+	New Fragments:
+		Monitor.TimedScript.PowerShell.FileSize.mpx
+		Monitor.TimedScript.PowerShell.UNCPathFreeSpace.mpx
+	Bug Fixes and Updates:
+		Class.And.Discovery.Script.PowerShell.FileExists.mpx
