@@ -176,7 +176,7 @@
 	Bug Fixes:
 		Enhanced Monitor.Process.mpx to use MatchCount and enforce lower case process name
 		Enhanced Monitor.Performance.ConsecSamples.ThenScript.TwoState.mpx CPU example and fixed core count mistake
-4.5 - (01-06-2020)
+4.5 - (01-06-2021)
 	New Fragments:
 		Class.And.Discovery.Unix.ShellCommand.Properties.mpx
 		Class.And.Discovery.Unix.ShellCommand.mpx

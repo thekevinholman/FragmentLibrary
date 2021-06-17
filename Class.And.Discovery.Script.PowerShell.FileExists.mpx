@@ -9,8 +9,8 @@ Description:
   FilePath - This is the path to the file such as "C:\foo.txt"
   In this example we added a a couple additional class properties to demo that capability 
 	
-Version: 1.0
-LastModified: 26-May-2020
+Version: 1.1
+LastModified: 17-Jun-2021
 %%
 
 In this fragment you need to replace:
@@ -204,7 +204,7 @@ $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runt
           <SyncTime></SyncTime>
           <TimeoutSeconds>120</TimeoutSeconds>
           <DebugLogging>false</DebugLogging>
-          <FilePath>C:\foo.txt</FilePath>  		
+          <FilePath>##FilePath##</FilePath>  		
         </DataSource>
       </Discovery>
     </Discoveries>

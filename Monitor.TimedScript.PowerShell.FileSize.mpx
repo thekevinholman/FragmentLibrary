@@ -1,0 +1,448 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR which runs a timed PowerShell script and inspects a FolderPath for files that are less than an expected threshold size
+	If any files are SMALLER than a threshold in KB we will consider this bad.
+	The example is when we expect files to change and if they do not something is broken
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem  
+  UniqueID - Is a unique short description of the monitor purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "MonitorFilesInFolder"
+  IntervalSeconds - How often the script should run
+  FolderPath - a Local or UNC path to search such as C:\TEST\Folder or \\servername\sharename\TEST\Folder
+  FileNameFilter - a comma seperated wildcard supporting filter in the format of *.log,*.t?t,filename*
+  FileSizeThresholdKB - The size in KB of the files to trigger the monitor state change
+  FileCountThreshold - The number of files needed to breach the threshold
+  
+Version: 1.0
+LastModified: 30-Mar-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##IntervalSeconds##
+  ##FolderPath##
+  ##FileNameFilter##
+  ##FileSizeThresholdKB##
+  ##FileCountThreshold##
+
+This fragment depends on references:  
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  
+@@Author=Kevin Holman@@    
+--> 
+	<TypeDefinitions>
+		<ModuleTypes>
+			<DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.DS" Accessibility="Internal" Batching="false">
+				<Configuration>
+					<xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="0" name="SyncTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileSizeThresholdKB" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileNameFilter" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileCountThreshold" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FolderPath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>					
+					<xsd:element minOccurs="1" name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+				</Configuration>
+				<OverrideableParameters>
+					<OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+					<OverrideableParameter ID="SyncTime" Selector="$Config/SyncTime$" ParameterType="string" />
+					<OverrideableParameter ID="FileSizeThresholdKB" Selector="$Config/FileSizeThresholdKB$" ParameterType="int" />
+					<OverrideableParameter ID="FileNameFilter" Selector="$Config/FileNameFilter$" ParameterType="string" />
+					<OverrideableParameter ID="FileCountThreshold" Selector="$Config/FileCountThreshold$" ParameterType="int" />
+					<OverrideableParameter ID="FolderPath" Selector="$Config/FolderPath$" ParameterType="string" />	
+					<OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+				</OverrideableParameters>
+				<ModuleImplementation Isolation="Any">
+					<Composite>
+						<MemberModules>
+							<DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+								<Scheduler>
+									<SimpleReccuringSchedule>
+										<Interval Unit="Seconds">$Config/IntervalSeconds$</Interval>
+										<SyncTime>$Config/SyncTime$</SyncTime>
+									</SimpleReccuringSchedule>
+									<ExcludeDates></ExcludeDates>
+								</Scheduler>
+							</DataSource>
+							<ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagTriggerOnlyProbe">
+								<ScriptName>##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.DS.ps1</ScriptName>
+								<ScriptBody>
+#=================================================================================
+#  File age monitoring script
+#  This script takes a file age threshold, file extension filter, Count, and path
+#  It will evaluate if a threshold is breached and output good or bad with properties
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param([int]$FileSizeThresholdKB,[string]$FileNameFilter,[int]$FileCountThreshold,[string]$FolderPath)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+#[int]$FileSizeThresholdKB = 1
+#[string]$FileNameFilter = "104_230_16319_*"
+#[int]$FileCountThreshold = 1
+#[string]$FolderPath = "e:\CCF_SBS_Batch_Jobs\CCF_SBS"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.DS.ps1"
+$EventID = "8676"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+# Load PropertyBag function 
+$bag = $momapi.CreatePropertyBag()
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nFolderPath: ($FolderPath) `nFileNameFilter: ($FileNameFilter) `nFileSizeThresholdKB: ($FileSizeThresholdKB) `nFileCountThreshold: ($FileCountThreshold) `nRunning as ($whoami).")
+
+# Test to see if the folder exists and exit with error if not
+IF (!(Test-Path $FolderPath))
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"FATAL ERROR:  The expected folder ($FolderPath) was not found.")
+  $bag.AddValue('Result','BadCondition')
+  $bag.AddValue('Message','The FolderPath was not available.')
+  $bag.AddValue('FolderPath',$FolderPath)
+  $bag.AddValue('FileNameFilter',$FileNameFilter)
+  $bag.AddValue('FileSizeThresholdKB',$FileSizeThresholdKB)
+  $bag.AddValue('FileCountThreshold',$FileCountThreshold)
+  # Return all bags
+  $bag
+  EXIT
+}
+
+# Clear any previous errors
+$Error.Clear()
+#Build array from filter string
+$FileNameFilterArr = $FileNameFilter.Split(",")
+
+# Create Empty array
+$FolderItems = @()
+#Create empty filter string:
+[string]$FileNameFilterString = ""
+
+# Loop through each filter extension and get the files then combine them into one big array
+# We use this because using Get-ChildItem -Include can throw errors if items change rapdily 
+FOREACH ($FileNameFilterString in $FileNameFilterArr)
+{
+  $FoldItemsTempArr = Get-ChildItem $FolderPath -Filter $FileNameFilterString
+  $FolderItems += $FoldItemsTempArr
+}
+
+#Exit the script if we throw an error from Get-ChildItem
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR:  Error while getting folderitems in path: ($FolderPath). `nTerminating script. `nError is: ($Error).")
+  $bag.AddValue('Result','BadCondition')
+  $bag.AddValue('Message',"Running Get-ChildItem for the FolderPath threw an Error. $Error")
+  $bag.AddValue('FolderPath',$FolderPath)
+  $bag.AddValue('FileNameFilter',$FileNameFilter)
+  $bag.AddValue('FileSizeThresholdKB',$FileSizeThresholdKB)
+  $bag.AddValue('FileCountThreshold',$FileCountThreshold)
+  # Return all bags
+  $bag
+  EXIT
+}
+
+#Stop if there are no matching files in the folder
+IF ($FolderItems.Count -eq 0)
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR:  No matching files were found in folder: ($FolderPath). `nTerminating script. `nError is: ($Error).")
+  $bag.AddValue('Result','BadCondition')
+  $bag.AddValue('Message',"No files were found in the folder that match the file name filter.  This is not expected.")
+  $bag.AddValue('FolderPath',$FolderPath)
+  $bag.AddValue('FileNameFilter',$FileNameFilter)
+  $bag.AddValue('FileSizeThresholdKB',$FileSizeThresholdKB)
+  $bag.AddValue('FileCountThreshold',$FileCountThreshold)
+  # Return all bags
+  $bag
+  EXIT
+}
+
+[int]$i=0
+[string]$SmallFileList = "Files smaller than threshold: `n"
+[string]$SmallFileContent = ""
+
+# Loop through each item and see if any folderitems are older than the threshold
+FOREACH ($FolderItem in $FolderItems)
+{
+  [datetime]$FolderItemLastWriteTime = $FolderItem.LastWriteTime
+  [double]$FileSizeBytes = $FolderItem.Length
+  [double]$FileSizeKB = [Math]::Round(($FileSizeBytes/1000),0)
+
+  IF ($FileSizeKB -le $FileSizeThresholdKB)
+  {
+    #Since this is true we found a file small than the threshold
+    #Increment a counter in case more than 1 file must be found smaller than threshold
+    $i++
+    [string]$FolderItemFullName = $FolderItem.Name
+    [string]$FolderItemLastWriteTimeStr = $FolderItemLastWriteTime.ToString()
+    $SmallFileList = $SmallFileList + $FolderItemFullName + " " + $FileSizeBytes + " bytes " + $FolderItemLastWriteTimeStr + ",`n"
+
+    #IF the filesize is less than Threshold but more than Zero gather the file contents for the alert
+    IF ($FileSizeBytes -ne 0)
+    {
+      $SmallFileContent = $SmallFileContent + $FolderItem.FullName + "`n" + (Get-Content $FolderItem.FullName | Out-String) + "`n`n"
+    }
+  }
+}
+
+#Evaluate if number of small files found is greater or equal to our threshold
+IF ($i -ge $FileCountThreshold)
+{
+  #This is true so number of files were found met filecountthreshold
+
+  #Truncate list in case it is too big
+  IF ($SmallFileList.Length -gt 512)
+  {
+    $SmallFileList = $SmallFileList.Substring(0,512)
+  }
+  #Truncate content in case it is too big
+  IF ($SmallFileContent.Length -gt 1024)
+  {
+    $SmallFileContent = $SmallFileContent.Substring(0,1024)
+  }
+  #Build the Message Content for the Alert
+  [string]$Message = $SmallFileList + "`nFile Contents:`n" + $SmallFileContent
+
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nSmall files were found. `n($Message).")
+  $bag.AddValue('Result','BadCondition')
+  $bag.AddValue('Message',$Message)
+  $bag.AddValue('FolderPath',$FolderPath)
+  $bag.AddValue('FileNameFilter',$FileNameFilter)
+  $bag.AddValue('FileSizeThresholdKB',$FileSizeThresholdKB)
+  $bag.AddValue('FileCountThreshold',$FileCountThreshold)
+}
+ELSE
+{
+  $bag.AddValue('Result','GoodCondition')
+  $bag.AddValue('Message','No small files found, or less than the FileCountThreshold')
+  $bag.AddValue('FolderPath',$FolderPath)
+  $bag.AddValue('FileNameFilter',$FileNameFilter)
+  $bag.AddValue('FileSizeThresholdKB',$FileSizeThresholdKB)
+  $bag.AddValue('FileCountThreshold',$FileCountThreshold)
+}
+
+# Return all bags
+$bag
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script						
+								</ScriptBody>
+								<Parameters>
+									<Parameter>
+										<Name>FileSizeThresholdKB</Name>
+										<Value>$Config/FileSizeThresholdKB$</Value>									
+									</Parameter>
+									<Parameter>
+										<Name>FileNameFilter</Name>
+										<Value>$Config/FileNameFilter$</Value>									
+									</Parameter>
+									<Parameter>
+										<Name>FileCountThreshold</Name>
+										<Value>$Config/FileCountThreshold$</Value>									
+									</Parameter>										
+									<Parameter>
+										<Name>FolderPath</Name>
+										<Value>$Config/FolderPath$</Value>									
+									</Parameter>									
+								</Parameters>
+								<TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+							</ProbeAction>
+						</MemberModules>
+						<Composition>
+							<Node ID="PA">
+								<Node ID="Scheduler" />
+							</Node>
+						</Composition>
+					</Composite>
+				</ModuleImplementation>
+				<OutputType>System!System.PropertyBagData</OutputType>
+			</DataSourceModuleType>
+		</ModuleTypes>
+		<MonitorTypes>
+			<UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.MonitorType" Accessibility="Internal">
+				<MonitorTypeStates>
+					<MonitorTypeState ID="GoodCondition" NoDetection="false" />
+					<MonitorTypeState ID="BadCondition" NoDetection="false" />
+				</MonitorTypeStates>
+				<Configuration>
+					<xsd:element minOccurs="1" name="IntervalSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="0" name="SyncTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileSizeThresholdKB" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileNameFilter" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FileCountThreshold" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+					<xsd:element minOccurs="1" name="FolderPath" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>					
+					<xsd:element minOccurs="1" name="TimeoutSeconds" type="xsd:integer" xmlns:xsd="http://www.w3.org/2001/XMLSchema"></xsd:element>
+				</Configuration>
+				<OverrideableParameters>
+					<OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+					<OverrideableParameter ID="SyncTime" Selector="$Config/SyncTime$" ParameterType="string" />
+					<OverrideableParameter ID="FileSizeThresholdKB" Selector="$Config/FileSizeThresholdKB$" ParameterType="int" />
+					<OverrideableParameter ID="FileNameFilter" Selector="$Config/FileNameFilter$" ParameterType="string" />
+					<OverrideableParameter ID="FileCountThreshold" Selector="$Config/FileCountThreshold$" ParameterType="int" />
+					<OverrideableParameter ID="FolderPath" Selector="$Config/FolderPath$" ParameterType="string" />	
+					<OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+				</OverrideableParameters>
+				<MonitorImplementation>
+					<MemberModules>
+						<DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.DS">
+							<IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+							<SyncTime>$Config/SyncTime$</SyncTime>
+							<FileSizeThresholdKB>$Config/FileSizeThresholdKB$</FileSizeThresholdKB>
+							<FileNameFilter>$Config/FileNameFilter$</FileNameFilter>
+							<FileCountThreshold>$Config/FileCountThreshold$</FileCountThreshold>
+							<FolderPath>$Config/FolderPath$</FolderPath>
+							<TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+						</DataSource>
+						<ConditionDetection ID="GoodConditionFilter" TypeID="System!System.ExpressionFilter">
+							<Expression>
+								<SimpleExpression>
+									<ValueExpression>
+										<XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+									</ValueExpression>
+									<Operator>Equal</Operator>
+									<ValueExpression>
+										<Value Type="String">GoodCondition</Value>
+									</ValueExpression>
+								</SimpleExpression>
+							</Expression>
+						</ConditionDetection>
+						<ConditionDetection ID="BadConditionFilter" TypeID="System!System.ExpressionFilter">
+							<Expression>
+								<SimpleExpression>
+									<ValueExpression>
+										<XPathQuery Type="String">Property[@Name='Result']</XPathQuery>
+									</ValueExpression>
+									<Operator>Equal</Operator>
+									<ValueExpression>
+										<Value Type="String">BadCondition</Value>
+									</ValueExpression>
+								</SimpleExpression>
+							</Expression>
+						</ConditionDetection>
+					</MemberModules>
+					<RegularDetections>
+						<RegularDetection MonitorTypeStateID="GoodCondition">
+							<Node ID="GoodConditionFilter">
+								<Node ID="DS" />
+							</Node>
+						</RegularDetection>
+						<RegularDetection MonitorTypeStateID="BadCondition">
+							<Node ID="BadConditionFilter">
+								<Node ID="DS" />
+							</Node>
+						</RegularDetection>
+					</RegularDetections>
+					<OnDemandDetections>
+						<OnDemandDetection MonitorTypeStateID="GoodCondition">
+							<Node ID="GoodConditionFilter">
+								<Node ID="DS" />
+							</Node>
+						</OnDemandDetection>
+						<OnDemandDetection MonitorTypeStateID="BadCondition">
+							<Node ID="BadConditionFilter">
+								<Node ID="DS" />
+							</Node>
+						</OnDemandDetection>
+					</OnDemandDetections>
+				</MonitorImplementation>
+			</UnitMonitorType>
+		</MonitorTypes>
+	</TypeDefinitions>
+	<Monitoring>
+		<Monitors>
+			<UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.MonitorType" ConfirmDelivery="true">
+				<Category>AvailabilityHealth</Category>
+				<AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.AlertMessage">
+					<AlertOnState>Warning</AlertOnState>
+					<AutoResolve>true</AutoResolve>
+					<AlertPriority>Normal</AlertPriority>
+					<AlertSeverity>Warning</AlertSeverity>
+					<AlertParameters>
+						<AlertParameter1>$Data/Context/Property[@Name='Result']$</AlertParameter1>
+						<AlertParameter2>$Data/Context/Property[@Name='Message']$</AlertParameter2>
+						<AlertParameter3>$Data/Context/Property[@Name='FolderPath']$</AlertParameter3>
+						<AlertParameter4>$Data/Context/Property[@Name='FileNameFilter']$</AlertParameter4>
+						<AlertParameter5>$Data/Context/Property[@Name='FileSizeThresholdKB']$</AlertParameter5>
+						<AlertParameter6>$Data/Context/Property[@Name='FileCountThreshold']$</AlertParameter6>
+					</AlertParameters>					
+				</AlertSettings>
+				<OperationalStates>
+					<OperationalState ID="GoodCondition" MonitorTypeStateID="GoodCondition" HealthState="Success" />
+					<OperationalState ID="BadCondition" MonitorTypeStateID="BadCondition" HealthState="Warning" />
+				</OperationalStates>
+				<Configuration>
+					<IntervalSeconds>##IntervalSeconds##</IntervalSeconds>
+					<SyncTime></SyncTime>
+					<FileSizeThresholdKB>##FileSizeThresholdKB##</FileSizeThresholdKB>
+					<FileNameFilter>##FileNameFilter##</FileNameFilter>
+					<FileCountThreshold>##FileCountThreshold##</FileCountThreshold>
+					<FolderPath>##FolderPath##</FolderPath>
+					<TimeoutSeconds>120</TimeoutSeconds>
+				</Configuration>
+			</UnitMonitor>
+		</Monitors>
+	</Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor">
+          <Name>##CompanyID## ##AppName## ##UniqueID## File Size Monitor</Name>
+          <Description></Description>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor" SubElementID="GoodCondition">
+          <Name>GoodCondition</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor" SubElementID="BadCondition">
+          <Name>BadCondition</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.FileSize.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##UniqueID## File Monitor: Unexpected File Size Found</Name>
+          <Description>##CompanyID## ##AppName## ##UniqueID## File Size Monitor
+Result: {0}
+FolderPath: {2}
+FileNameFilter: {3}
+FileSizeThresholdKB: {4}
+FileCountThreshold: {5}
+Message: {1}</Description>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
