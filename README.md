@@ -1,4 +1,4 @@
-# FragmentLibrary 4.6
+# FragmentLibrary 4.7
 SCOM - Management Pack VSAE and Silect Fragment Library
 
 ## [Download Here][Download]
@@ -222,3 +222,9 @@ Version History:
 		* Monitor.TimedScript.PowerShell.UNCPathFreeSpace.mpx
 	* Bug Fixes and Updates:
 		* Class.And.Discovery.Script.PowerShell.FileExists.mpx
+* 4.7 - (08-04-2021)
+	* New Fragments:
+		* Monitor.TimedScript.PowerShell.LocalPortCheck.mpx
+		* Monitor.TimedScript.PowerShell.ParseTextFile.mpx
+	* Bug Fixes and Updates:
+		* Monitor.TimedScript.PowerShell.SQLQuery.mpx
