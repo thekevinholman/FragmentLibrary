@@ -1,0 +1,108 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A RECOVERY for a Monitor that executes a generic PowerShell script.
+  The recovery is disabled by default.  Set Enabled="true" if you want the recovery to run automatically.
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem   
+  MonitorID - the ID of the monitor that the recovery should run against such as Microsoft.Windows.Server.10.0.OperatingSystem.MemoryAvailableMBytes
+  ExecuteOnState - This is dependent on the designed state of monitor you target and is set to Warning or Error
+  UniqueID - We need a Unique ID for this Recovery to reuse the fragment multiple times in the same MP.  NO SPACES OR SPECIAL CHARACTERS ALLOWED
+
+Version: 1.0
+LastModified: 06-Aug-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##MonitorID##
+  ##ExecuteOnState##  
+  ##UniqueID##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+
+@@Author=Kevin Holman@@  
+-->
+ 
+  <Monitoring>
+    <Recoveries>
+      <Recovery ID="##CompanyID##.##AppName##.##UniqueID##.PowerShell.Recovery" Accessibility="Public" Enabled="false" Target="##ClassID##" Monitor="##MonitorID##" ResetMonitor="false" ExecuteOnState="##ExecuteOnState##" Remotable="true" Timeout="300">
+        <Category>Custom</Category>
+		<WriteAction ID="PSWA" TypeID="Windows!Microsoft.Windows.PowerShellWriteAction">
+		  <ScriptName>##CompanyID##.##AppName##.##UniqueID##.PowerShell.Recovery.ps1</ScriptName>
+		  <ScriptBody>
+#=================================================================================
+#  Generic Recovery Script
+#
+#  Author:  Kevin Holman
+#  Version:  1.0
+#=================================================================================
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $ServiceName = "spooler"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.PowerShell.Recovery.ps1"
+$EventID = "4321"
+#=================================================================================
+
+
+# Starting Script section
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nRecovery script is starting. `nRunning as ($whoami).")
+write-host "Recovery script is starting. Running as ($whoami)."
+
+#Put your recovery actions here
+
+#=================================================================================
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+write-host "Script Completed. Script Runtime: ($ScriptTime) seconds."
+#=================================================================================
+# End of script		  
+		  </ScriptBody>
+		  <TimeoutSeconds>240</TimeoutSeconds>
+		</WriteAction>
+      </Recovery>
+    </Recoveries> 
+  </Monitoring>	
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PowerShell.Recovery">
+          <Name>##CompanyID## ##AppName## ##UniqueID## PowerShell Recovery</Name>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
