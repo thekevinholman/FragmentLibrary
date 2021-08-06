@@ -1,0 +1,259 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR to inspect whether a port is listening or not
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - We need a Unique ID for this Monitor to reuse the fragment.  Use a shortened descriptive name for the Process with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  ClassID - The targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  PortNumber - Is a numeric TCP port that will be checked for listening status
+
+Version: 1.0
+LastModified: 06-Aug-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##PortNumber##
+  ##ClassID##
+  ##UniqueID##  
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  RequiredReference: Alias="MSSL", ID="Microsoft.SystemCenter.SyntheticTransactions.Library"
+@@Author=Kevin Holman@@  
+-->
+  <TypeDefinitions>
+    <ModuleTypes>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor.DS" Accessibility="Public" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:string" name="ComputerName" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:integer" name="PortNumber" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="PortNumber" Selector="$Config/PortNumber$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+                <Scheduler>
+                  <SimpleReccuringSchedule>
+                    <Interval Unit="Seconds">$Config/IntervalSeconds$</Interval>
+                  </SimpleReccuringSchedule>
+                  <ExcludeDates />
+                </Scheduler>
+              </DataSource>
+              <ProbeAction ID="Probe" TypeID="MSSL!Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe">
+                <ServerName>$Config/ComputerName$</ServerName>
+                <Port>$Config/PortNumber$</Port>
+              </ProbeAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="Probe">
+                <Node ID="Scheduler" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>MSSL!Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckData</OutputType>
+      </DataSourceModuleType>
+    </ModuleTypes>  
+    <MonitorTypes>
+      <UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.MonitorType" Accessibility="Public">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="PortFailed" NoDetection="false" />
+          <MonitorTypeState ID="PortResponding" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration>
+          <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:string" name="ComputerName" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:integer" name="PortNumber" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="MatchCount" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="PortNumber" Selector="$Config/PortNumber$" ParameterType="int" />
+		  <OverrideableParameter ID="MatchCount" Selector="$Config/MatchCount$" ParameterType="int" />		  
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor.DS">
+              <IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+		      <ComputerName>$Config/ComputerName$</ComputerName>
+		      <PortNumber>$Config/PortNumber$</PortNumber>
+            </DataSource>
+            <ConditionDetection ID="CDPortFailed" TypeID="System!System.ExpressionFilter">
+              <Expression>
+			    <Or>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952460</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952461</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147953401</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Equal</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952465</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>				  
+				</Or>
+			  </Expression>
+			  <SuppressionSettings>
+                <MatchCount>$Config/MatchCount$</MatchCount>
+              </SuppressionSettings>			  
+            </ConditionDetection>
+            <ConditionDetection ID="CDPortResponding" TypeID="System!System.ExpressionFilter">
+              <Expression>
+			    <And>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952460</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952461</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147953401</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>				
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="UnsignedInteger">StatusCode</XPathQuery>
+                      </ValueExpression>
+                      <Operator>NotEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="UnsignedInteger">2147952465</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>	
+				</And>
+			  </Expression>
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="PortFailed">
+              <Node ID="CDPortFailed">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="PortResponding">
+              <Node ID="CDPortResponding">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>	
+    </MonitorTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.MonitorType" ConfirmDelivery="false">
+        <Category>AvailabilityHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>Error</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="PortResponding" MonitorTypeStateID="PortResponding" HealthState="Success" />
+          <OperationalState ID="PortFailed" MonitorTypeStateID="PortFailed" HealthState="Warning" />
+        </OperationalStates>
+        <Configuration>
+          <IntervalSeconds>120</IntervalSeconds>
+		  <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</ComputerName>
+		  <PortNumber>##PortNumber##</PortNumber>
+		  <MatchCount>2</MatchCount>  <!-- This is the number of consecutive matches that must be met before the monitor will change state.  Also a good example of passing in Integer data. -->
+        </Configuration>
+      </UnitMonitor>	
+    </Monitors>
+  </Monitoring>
+  <Presentation>  
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>  
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>  
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor">
+          <Name>##CompanyID## ##AppName## ##UniqueID## PortCheck Monitor</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor" SubElementID="PortResponding">
+          <Name>Port is Responding</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor" SubElementID="PortFailed">
+          <Name>Port is not responding</Name>
+        </DisplayString>
+		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.PortCheck.Monitor.AlertMessage">
+          <Name>##AppName## TCP Port is not responding</Name>
+          <Description>The Port Check failed on TCP Port ##PortNumber##.</Description>
+        </DisplayString>
+	  </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
