@@ -1,4 +1,4 @@
-# FragmentLibrary 4.7
+# FragmentLibrary 4.8
 SCOM - Management Pack VSAE and Silect Fragment Library
 
 ## [Download Here][Download]
@@ -228,3 +228,7 @@ Version History:
 		* Monitor.TimedScript.PowerShell.ParseTextFile.mpx
 	* Bug Fixes and Updates:
 		* Monitor.TimedScript.PowerShell.SQLQuery.mpx
+* 4.8 - (08-06-2021)
+	* New Fragments:
+		* Recovery.Script.PowerShell.Simple.mpx
+		* Recovery.Script.PowerShell.Advanced.mpx
