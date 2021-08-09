@@ -1,0 +1,447 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A GROUP of Windows Computers that are members of an Active Directory Group AND any related Virtual Server Windows Computers
+  IF the AD Group contains a Cluster Node, this will include any Virtual Windows Computers Objects hosted by the cluster
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  GroupNameNoSpaces - needs to be a UNIQUE short name that describes your group with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  
+  ADGroupName - the display name of the group in Active Directory such as "TEST Computers Group"
+  LDAPSearchPath - The path you want to search for the group - such as LDAP://DC=opsmgr,DC=net
+
+Version: 1.0
+LastModified: 08-Aug-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##GroupNameNoSpaces##
+  ##ADGroupName##
+  ##LDAPSearchPath##
+
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"  
+  RequiredReference: Alias="SC", ID="Microsoft.SystemCenter.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="MSIL", ID="Microsoft.SystemCenter.InstanceGroup.Library"
+  
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group" Accessibility="Public" Abstract="false" Base="MSIL!Microsoft.SystemCenter.InstanceGroup" Hosted="false" Singleton="true" />
+      </ClassTypes>
+      <RelationshipTypes>
+        <RelationshipType ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Contains.Windows.Computers" Accessibility="Internal" Abstract="false" Base="System!System.Containment">
+          <Source ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Rel.Source" Type="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group" />
+          <Target ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Rel.Target" Type="Windows!Microsoft.Windows.Computer" />
+        </RelationshipType>
+      </RelationshipTypes>		  
+    </EntityTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Discovery" Enabled="true" Target="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group" />
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>86333</IntervalSeconds>
+		  <SyncTime></SyncTime>
+          <ScriptName>##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Discovery.ps1</ScriptName>
+          <ScriptBody><![CDATA[
+#=================================================================================
+#  Group Population script based on AD group membership and Include Cluster Computers 
+#
+#  Kevin Holman
+#  v1.0
+#=================================================================================
+param($SourceID, $ManagedEntityID, $ADGroup, $LDAPSearchPath)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# $ADGroup = "Test Group"
+# $LDAPSearchPath = "LDAP://DC=opsmgr,DC=net"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging
+$ScriptName = "##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Discovery.ps1"
+$EventID = "7500"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#Set variables to be used in logging events
+$whoami = whoami
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script is starting. `n Running as ($whoami).")
+#=================================================================================
+
+
+# Connect to local SCOM Management Group Section
+#=================================================================================
+# Clear any previous errors
+$Error.Clear()
+# Import the OperationsManager module and connect to the management group
+$SCOMPowerShellKey = "HKLM:\SOFTWARE\Microsoft\System Center Operations Manager\12\Setup\Powershell\V2"
+$SCOMModulePath = Join-Path (Get-ItemProperty $SCOMPowerShellKey).InstallDirectory "OperationsManager"
+Import-module $SCOMModulePath
+New-DefaultManagementGroupConnection "localhost"
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Failure loading OperationsManager module or unable to connect to the management server. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Log event for captured parameters
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n ADGroup: ($ADGroup) `n LDAP search path: ($LDAPSearchPath).")
+
+# Health Service class section
+# We need this list of SCOM agents, so we can only submit discovery data for a Healthservice in SCOM otherwise SCOM will reject the discovery data, and this will clean up deleted stale Windows Computer objects that will remain until the next discovery 
+# Clear any previous errors
+$Error.Clear()
+# Get all instances of a existing Health Service class
+$HS = Get-SCOMClass -Name "Microsoft.SystemCenter.Healthservice" | Get-SCOMClassInstance
+$HSNames = $HS.DisplayName
+$HSCount = $HSNames.count
+IF($Error)
+{
+	$momapi.LogScriptEvent($ScriptName,$EventID,1, "`n FATAL ERROR: Unable to gather Healthservice instances from SCOM. `n Error is: $Error")
+    EXIT
+}
+ELSE
+{
+    $momapi.LogScriptEvent($ScriptName,$EventID,0, "`n Get all Health Service Objects from SCOM has completed. `n Returned ($HSCount) Health Service Objects from SCOM.")
+}
+# END Health Service class section
+
+# Windows Computer class array section
+# We need this list of SCOM Windows Computer Objects, so we can only submit discovery data for group membership if there is already a discovered Windows Computer object 
+# Get all instances of a existing Windows Computer class
+$Error.Clear()
+$WC = Get-SCOMClass -Name "Microsoft.Windows.Computer" | Get-SCOMClassInstance
+$WCNames = $WC.DisplayName
+$WCCount = $WCNames.count
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Windows Computer Objects returned an error. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+ELSEIF ($WCCount -lt 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Windows Computer Objects did not return expected number of objects. `n ($WCCount) Windows Computer objects returned. `n Terminating script.")
+  EXIT
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Completed - Get all Windows Computer Objects. `n ($WCCount) Windows Computer objects.")
+}
+
+# Cluster Virtual Server class array section
+# Get relationship for clusters
+$Error.Clear()
+$rid = Get-SCOMRelationship -DisplayName 'Health Service manages Entity'
+$VirtualServers = Get-SCOMClass -name 'Microsoft.Windows.Cluster.VirtualServer' | Get-SCOMClassInstance
+$VirtualServersCount = $VirtualServers.count
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Microsoft.Windows.Cluster.VirtualServer Objects returned an error. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+ELSEIF ($VirtualServersCount -lt 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Microsoft.Windows.Cluster.VirtualServer Objects did not return expected number of objects. `n ($VirtualServersCount) Microsoft.Windows.Cluster.VirtualServer objects returned. `n Terminating script.")
+  EXIT
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Completed - Get all Microsoft.Windows.Cluster.VirtualServer Objects. `n ($VirtualServersCount) Virtual Server objects.")
+}
+
+# Cluster object class array section
+$Error.Clear()
+$VirtualClusterServers = Get-SCOMClass -name 'Microsoft.Windows.Cluster' | Get-SCOMClassInstance
+$VirtualClusterServersCount = $VirtualClusterServers.count
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Microsoft.Windows.Cluster Objects returned an error. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+ELSEIF ($VirtualClusterServersCount -lt 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Microsoft.Windows.Cluster Objects did not return expected number of objects. `n ($VirtualClusterServersCount) Microsoft.Windows.Cluster objects returned. `n Terminating script.")
+  EXIT
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Completed - Get all Microsoft.Windows.Cluster Objects. `n ($VirtualClusterServersCount) Cluster objects.")
+}
+
+# Get the Health Service objects that contain Clusters into an array
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nStarting loop to find all Health Service objects from the Virtual Server Cluster objects via the SDK. `nThis can take a long time.")
+$Error.Clear()
+# Set array to empty
+$NodeHSObjects = @()
+FOREACH ($VirtualServer in $VirtualServers)
+{
+  #Get the nodes in an array which have a health service relationship managing the cluster name
+  $nodes = Get-SCOMRelationshipInstance -TargetInstance $VirtualServer | Where-Object {$_.relationshipid -eq $rid.id} | Select-Object -Property SourceObject
+
+  #Get an array of SCOM HealthService objects which match the displayname of objects in the nodes array and check first to ensure no duplicates
+  FOREACH ($node in $nodes)
+  {
+    If ($NodeHSObjects -notcontains $node.SourceObject)
+    {
+      $NodeHSObjects += $HS | where {$_.DisplayName -eq $node.SourceObject}
+    }
+  }
+}
+$NodeHSNames = $NodeHSObjects.DisplayName
+$NodeHSNamesCount = $NodeHSNames.Count
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Health Service objects that host Virtual Server Cluster objects returned an error. `n Terminating script. `n Error is: ($Error).")
+  EXIT
+}
+ELSEIF ($NodeHSNamesCount -lt 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Get all Health Service objects that host Virtual Server Cluster objects did not return expected number of objects. `n($NodeHSNamesCount) Health Service objects returned. `nTerminating script.")
+  EXIT
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nCompleted - Get all Health Service objects that host Virtual Server Cluster objects via the SDK. `n($NodeHSNamesCount) Health Service Objects that host Virtual Server cluster objects.")
+}
+
+
+# Connect to AD using LDAP search to find the DN for the Group
+$Searcher = New-Object DirectoryServices.DirectorySearcher
+$Searcher.Filter = '(&(objectCategory=group)(cn=' + $ADGroup + '))'
+$Searcher.SearchRoot = $LDAPSearchPath
+$Group = $Searcher.FindAll()
+IF ($Error) 
+{ 
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR: Failure getting data from AD for ($ADGroup). `nTerminating script. `nError is: ($Error).")
+  EXIT
+}
+
+$GroupDN = @()
+
+# Now that we have the group object, trim to get the DN in order to search for members
+$GroupDN = $Group.path.TrimStart("LDAP://")
+
+#If we found the group in AD by the DisplayName log a success event otherwise log error
+IF ($GroupDN)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found group in AD. `n ADGroup: ($ADGroup) `n GroupDN: ($GroupDN).")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR: Did not find group in AD: ($ADGroup) using ($LDAPSearchPath). `n Terminating script.")
+  EXIT
+}
+
+# Search for members of the group
+$Searcher = New-Object DirectoryServices.DirectorySearcher
+$Searcher.Filter = '(&(objectCategory=computer)(memberOf=' + $GroupDN + '))'
+$ADComputerObjects = $Searcher.FindAll()
+$ADComputerObjectsCount = $ADComputerObjects.Count
+If ($ADComputerObjectsCount -gt 0)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found ($ADComputerObjectsCount) members in the group. `n ADGroup: ($ADGroup) `n GroupDN: ($GroupDN).")
+}
+Else
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1, "`n FATAL ERROR: Did not find any members in the AD group. `n ADGroup: ($ADGroup) `n GroupDN: ($GroupDN). `n Terminating script.")
+  EXIT
+}
+
+# Set namelist array to empty
+$NameList = @()
+
+# Loop through each computer object and build an array of FQDN hostnames
+FOREACH ($ADComputerObject in $ADComputerObjects)
+{
+  #Get the DNS Hostname property from AD
+  [string]$DNSComputerName = $ADComputerObject.Properties.dnshostname
+  #Only add the name to the array if the DNSHostname property exists in AD
+  IF ($DNSComputerName)
+  {
+    $NameList += $DNSComputerName
+  }
+}
+$NameListCount = $NameList.Count
+IF ($NameListCount -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Successfully found ($NameListCount) DNS Names from the original ($ADComputerObjectsCount) members in the group. `n ADGroup: ($ADGroup) `n GroupDN: ($GroupDN).")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`n FATAL ERROR:  There was an error getting DNS Host Names or none were found for members of the group. `n Group objects count: ($ADComputerObjectsCount). `n ADGroup: ($ADGroup) `n GroupDN: ($GroupDN). `n Terminating script.")
+  EXIT
+}
+
+#Discovery Section
+#Set the group instance we will discover members of
+$GroupInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group']$")
+
+# Loop through each SCOM computer and add a group membership containment relationship to the discovery data
+$i=0
+$j=0
+$k=0
+$l=0
+[array]$VirtualComputerNamesArr = @()
+FOREACH ($Name in $NameList)
+{
+  #Check to make sure the DNS name we got from AD Group Membership exists as a Healthservice in this Management Group
+  IF ($Name -in $HSNames)
+  {
+    $i = $i+1	
+    #Check If Cluster Section
+	#Now we need to determine if this is a cluster node and if so discover the virtual computers and add extra property values
+	IF ($Name -in $NodeHSNames)
+	{
+	  #This FQDN is a node in a cluster so continuing this section
+	  #We must get all Cluster Virtuals that have a Windows Computer object, and submit discovery data for those as well
+	  $j=$j+1
+      
+      #This is a Cluster Node - continuing
+      #Get the healthservice object from the previous array that matches FQDN
+      $NodeHS = $NodeHSObjects | where-object {$_.DisplayName -eq $Name}
+
+      #Get the cluster virtuals that have a relationship to this node Health Service
+      $Virtuals = Get-SCOMRelationshipInstance -SourceInstance $NodeHS | Where-Object {$_.relationshipid -eq $rid.id} | Select-Object -Property TargetObject -Unique
+
+	  FOREACH ($Virtual in $Virtuals)
+	  {
+        #The following IF statement will ignore the node FQDN in the list
+        IF ($Virtual.TargetObject.DisplayName -ne $Name)
+        {
+          #Get the VirtualServer class instance from our previous array
+          $VirtComputerName = $Virtual.TargetObject.DisplayName
+          #Only submit discovery data if we have not already submitted for the cluster virtual computer on a prior node
+          IF ($VirtComputerName -notin $VirtualComputerNamesArr)
+          {
+            # Only return Group Membership discovery data IF we have a Windows Computer object for this Virtual Server already so we do not ever create new WC objects
+            IF ($VirtComputerName -in $WCNames)
+            {
+              $k=$k+1
+              #Create discovery data for each virtual computer hosted by a cluster if not already created
+              $ServerInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='Windows!Microsoft.Windows.Computer']$")
+              $ServerInstance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $VirtComputerName)
+              $RelationshipInstance = $DiscoveryData.CreateRelationshipInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Contains.Windows.Computers']$")
+              $RelationshipInstance.Source = $GroupInstance
+              $RelationshipInstance.Target = $ServerInstance
+              $DiscoveryData.AddInstance($RelationshipInstance)
+
+              # Add virtual computer name to array to keep from submitting duplicate virtual computers for other nodes
+              $VirtualComputerNamesArr = $VirtualComputerNamesArr + $VirtComputerName
+            }
+          }
+        }
+      }
+    }
+
+    #Submit Discovery Data for Non Cluster Computers and Cluster Node Computers
+	$l=$l+1
+    $ServerInstance = $DiscoveryData.CreateClassInstance("$MPElement[Name='Windows!Microsoft.Windows.Computer']$")
+    $ServerInstance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$", $Name) 
+    $RelationshipInstance = $DiscoveryData.CreateRelationshipInstance("$MPElement[Name='##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Contains.Windows.Computers']$")
+    $RelationshipInstance.Source = $GroupInstance
+    $RelationshipInstance.Target = $ServerInstance
+    $DiscoveryData.AddInstance($RelationshipInstance)   
+  }
+}
+
+$ADComputersInSCOM = $i
+$ADComputersClusterNodes = $j
+$ADComputersClusterComputersDiscovered = $k
+$ADComputersNonClusterDiscovered = $l
+
+IF ($i -ge 1)
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nSuccessfully found ($ADComputersInSCOM) Computers in SCOM from the original ($NameListCount) DNS names in the AD Group. `nCluster Nodes found in AD Group and SCOM: ($ADComputersClusterNodes). `nComputers (Non-Virtual) Discovered and Added to SCOM Group: ($ADComputersNonClusterDiscovered). `nCluster Virtual Computers Discovered and Added to SCOM Group: ($ADComputersClusterComputersDiscovered). `nADGroup: ($ADGroup) `nGroupDN: ($GroupDN).")
+}
+ELSE
+{
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR:  No computers in SCOM were found matching the ($NameListCount) DNS names pulled from the group. `nGroup objects: ($ADComputerObjectsCount). `nADGroup: ($ADGroup) `nGroupDN: ($GroupDN). `nTerminating script.")
+  EXIT
+}
+
+# Return Discovery Items Normally           
+$DiscoveryData
+
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Ending. `n Script Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+#End Script
+          ]]></ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>sourceId</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>managedEntityId</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ADGroup</Name>
+              <Value>##ADGroupName##</Value>
+            </Parameter>
+			<Parameter>
+              <Name>LDAPSearchPath</Name>
+              <Value>##LDAPSearchPath##</Value>
+            </Parameter>
+          </Parameters>
+          <TimeoutSeconds>300</TimeoutSeconds>
+        </DataSource>
+      </Discovery>	  
+    </Discoveries>
+  </Monitoring>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## ADBased Group</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.ADBased.Group.Discovery">
+          <Name>##CompanyID## ##AppName## ##GroupNameNoSpaces## ADBased Group Discovery</Name>
+          <Description>This discovery rule populates a group of Windows Computer Objects that exist in Active Directory Group and INCLUDES Cluster Virtual Computers - ##ADGroupName##</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
