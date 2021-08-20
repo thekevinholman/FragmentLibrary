@@ -8,12 +8,12 @@ Description:
   ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
   UniqueID - should be your ProcessName (without the ".exe") Combined with your CounterName, with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  For instance, "WmiPrvSE.exe" and "% Processor Time" would be cleaned up to "WmiPrvSEPercentProcessorTime"
   CounterName - The PERFMON counter you wish to monitor such as "% Processor Time" or "Handle Count" or "Private Bytes"
-  ProcessName - The name of your process exactly as it shows up in PERFMON (Without the .exe, needs to be exactly as seen in perfmon and for multiple processes with the same name ignore the "#1"(
+  ProcessName - The name of your process exactly as it shows up in PERFMON (Without the .exe, needs to be exactly as seen in perfmon and for multiple processes with the same name ignore the "#1")
   FrequencySeconds - The frequency to inspect the perf value.  The default is every 60 seconds
   Threshold - The threshold for your counter as seen in PERFMON.
   Samples - The number of consecutive samples breaching a threshold required before alerting
 
-Version: 1.0
+Version: 1.1
 LastModified: 20-Aug-2021
 %%
 
@@ -63,6 +63,7 @@ This fragment depends on references:
           <ObjectName>Process</ObjectName>
           <InstanceName>##ProcessName##</InstanceName>
           <Frequency>##FrequencySeconds##</Frequency>  <!-- 60 seconds is a good recommended interval for a native module perfmon monitor -->
+          <!-- <ScaleBy></ScaleBy> -->  <!-- If monitoring CPU for a process you must scale by number of logical processors such as $Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/LogicalProcessors$ -->
           <Threshold>##Threshold##</Threshold>
           <NumSamples>##Samples##</NumSamples>
         </Configuration>
