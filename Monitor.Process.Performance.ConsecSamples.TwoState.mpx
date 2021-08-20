@@ -1,0 +1,103 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR for PROCESS performance data which uses consecutive samples and two states with Alert
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - should be your ProcessName (without the ".exe") Combined with your CounterName, with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  For instance, "WmiPrvSE.exe" and "% Processor Time" would be cleaned up to "WmiPrvSEPercentProcessorTime"
+  CounterName - The PERFMON counter you wish to monitor such as "% Processor Time" or "Handle Count" or "Private Bytes"
+  ProcessName - The name of your process exactly as it shows up in PERFMON (Without the .exe, needs to be exactly as seen in perfmon and for multiple processes with the same name ignore the "#1"(
+  FrequencySeconds - The frequency to inspect the perf value.  The default is every 60 seconds
+  Threshold - The threshold for your counter as seen in PERFMON.
+  Samples - The number of consecutive samples breaching a threshold required before alerting
+
+Version: 1.0
+LastModified: 20-Aug-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##CounterName##
+  ##ProcessName##
+  ##FrequencySeconds##
+  ##Threshold##
+  ##Samples##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  RequiredReference: Alias="Perf", ID="System.Performance.Library"
+  RequiredReference: Alias="MSPL", ID="Microsoft.SystemCenter.ProcessMonitoring.Library"  
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.PerformanceState" Remotable="true" Priority="Normal" TypeID="MSPL!Microsoft.SystemCenter.Process.ConsecutiveSamplesThreshold.ErrorOnTooHigh" ConfirmDelivery="false">
+        <Category>PerformanceHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>MatchMonitorHealth</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+          <AlertParameters>
+            <AlertParameter1>$Data/Context/ObjectName$</AlertParameter1>
+            <AlertParameter2>$Data/Context/CounterName$</AlertParameter2>
+            <AlertParameter3>$Data/Context/InstanceName$</AlertParameter3>
+            <AlertParameter4>$Data/Context/SampleValue$</AlertParameter4>
+            <AlertParameter5>$Data/Context/TimeSampled$</AlertParameter5>
+          </AlertParameters>
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="ThresholdNotBreached" MonitorTypeStateID="SampleCountNormal" HealthState="Success" />
+          <OperationalState ID="ThresholdBreached" MonitorTypeStateID="SampleCountTooHigh" HealthState="Warning" />  <!-- HealthState = Warning or Error -->
+        </OperationalStates>
+        <Configuration>
+          <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+          <CounterName>##CounterName##</CounterName>
+          <ObjectName>Process</ObjectName>
+          <InstanceName>##ProcessName##</InstanceName>
+          <Frequency>##FrequencySeconds##</Frequency>  <!-- 60 seconds is a good recommended interval for a native module perfmon monitor -->
+          <Threshold>##Threshold##</Threshold>
+          <NumSamples>##Samples##</NumSamples>
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor">
+          <Name>##CompanyID## ##AppName## ##ProcessName## ##CounterName## Perf Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor" SubElementID="ThresholdNotBreached">
+          <Name>ThresholdNotBreached</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor" SubElementID="ThresholdBreached">
+          <Name>ThresholdBreached</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Process.Perf.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##ProcessName## ##CounterName## has breached a threshold</Name>
+          <Description>The monitor breached the threshold:
+Object: {0}
+Counter {1}
+Instance {2}
+Has a value {3} 
+At time {4}
+          </Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
