@@ -1,0 +1,198 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A MONITOR for performance data where you wish to monitor multiple instances in a single evaluation, and we need to alert when ANY instance breaches a threshold.  This uses consecutive samples, two states, and alerts
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  UniqueID - should be your PERFMON InstanceName combined with your CounterName, with NO SPACES OR SPECIAL CHARACTERS ALLOWED.  For instance, "WmiPrvSE" and "% Processor Time" would be cleaned up to "WmiPrvSEPercentProcessorTime" 
+  ObjectName - The PERFMON Object that has multiple instances you wish to monitor such as "Process" or "LogicalDisk" or "Print Queue"
+  CounterName - The PERFMON counter you wish to monitor such as "% Processor Time" or "Handle Count" or "Private Bytes"
+  InstanceName - The PERFMON instance name exactly as it shows up in PERFMON (needs to be exactly as seen in perfmon and for multiple processes with the same name ignore the "#1" or leave blank if using AllInstances)
+  FrequencySeconds - The frequency to inspect the perf value.  The default is every 60 seconds
+  Threshold - The threshold value for your counter as seen in PERFMON.
+  Samples - The number of consecutive samples breaching a threshold required before alerting
+  
+Version: 1.0
+LastModified: 22-Aug-2021
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##UniqueID##
+  ##ObjectName##
+  ##CounterName##
+  ##InstanceName##
+  ##FrequencySeconds##
+  ##Threshold##
+  ##Samples##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"
+  RequiredReference: Alias="Perf", ID="System.Performance.Library"
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <MonitorTypes>
+      <UnitMonitorType ID="##CompanyID##.##AppName##.##UniqueID##.Perf.MonitorType" Accessibility="Public">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="ThresholdBreached" NoDetection="false" />
+          <MonitorTypeState ID="ThresholdNotBreached" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration>
+          <xsd:element name="ComputerName" type="xsd:string" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="CounterName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ObjectName" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="InstanceName" type="xsd:string" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element name="AllInstances" type="xsd:boolean" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Frequency" type="xsd:unsignedInt" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="ScaleBy" type="xsd:double" minOccurs="0" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Threshold" type="xsd:double" minOccurs="1" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="Direction" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element name="NumSamples" type="xsd:unsignedInt" minOccurs="1" maxOccurs="1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+          <OverrideableParameter ID="Frequency" Selector="$Config/Frequency$" ParameterType="int" />
+          <OverrideableParameter ID="Threshold" Selector="$Config/Threshold$" ParameterType="double" />
+          <OverrideableParameter ID="NumSamples" Selector="$Config/NumSamples$" ParameterType="int" />
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DS" TypeID="Performance!System.Performance.DataProvider">
+              <ComputerName>$Config/ComputerName$</ComputerName>
+              <CounterName>$Config/CounterName$</CounterName>
+              <ObjectName>$Config/ObjectName$</ObjectName>
+              <InstanceName>$Config/InstanceName$</InstanceName>
+              <AllInstances>$Config/AllInstances$</AllInstances>
+              <Frequency>$Config/Frequency$</Frequency>
+              <ScaleBy>$Config/ScaleBy$</ScaleBy>
+            </DataSource>
+            <ConditionDetection ID="CDThreshold" TypeID="Performance!System.Performance.ConsecutiveSamplesCondition">
+              <Threshold>$Config/Threshold$</Threshold>
+              <Direction>$Config/Direction$</Direction>
+            </ConditionDetection>
+            <ConditionDetection ID="SampleCountNotReached" TypeID="System!System.LogicalSet.ExpressionFilter">
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="Double">Value</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Less</Operator>
+                  <ValueExpression>
+                    <Value Type="Double">$Config/NumSamples$</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+              <EmptySet>Passthrough</EmptySet>  <!-- If no data is received from the Data Source either continue or stop the workflow.  Passthrough or Block are valid. Passthrough continues while Block stops processing -->
+              <SetEvaluation>All</SetEvaluation>  <!-- All or Any.  All means all data items in the set must match criteria while Any means that any dataitem received can match crtieria -->
+            </ConditionDetection>
+            <ConditionDetection ID="SampleCountReached" TypeID="System!System.LogicalSet.ExpressionFilter">
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="Double">Value</XPathQuery>
+                  </ValueExpression>
+                  <Operator>GreaterEqual</Operator>
+                  <ValueExpression>
+                    <Value Type="Double">$Config/NumSamples$</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+              <EmptySet>Block</EmptySet>  <!-- If no data is received from the Data Source either continue or stop the workflow.  Passthrough or Block are valid. Passthrough continues while Block stops processing -->
+              <SetEvaluation>Any</SetEvaluation>  <!-- All or Any.  All means all data items in the set must match criteria while Any means that any dataitem received can match crtieria -->
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="ThresholdBreached">
+              <Node ID="SampleCountReached">
+                <Node ID="CDThreshold">
+                  <Node ID="DS" />
+                </Node>
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="ThresholdNotBreached">
+              <Node ID="SampleCountNotReached">
+                <Node ID="CDThreshold">
+                  <Node ID="DS" />
+                </Node>
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>	
+    </MonitorTypes>
+  </TypeDefinitions>	
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.PerformanceState" Remotable="true" Priority="Normal" TypeID="##CompanyID##.##AppName##.##UniqueID##.Perf.MonitorType" ConfirmDelivery="false">
+        <Category>PerformanceHealth</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor.AlertMessage">
+          <AlertOnState>Warning</AlertOnState>  <!-- Warning or Error should match OperationalStates below  -->
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>Warning</AlertSeverity>  <!-- Common options for AlertSeverity are MatchMonitorHealth, Information, Warning, Error -->
+          <AlertParameters>
+            <AlertParameter1>$Data/Context/ObjectName$</AlertParameter1>
+            <AlertParameter2>$Data/Context/CounterName$</AlertParameter2>
+            <AlertParameter3>$Data/Context/InstanceName$</AlertParameter3>
+            <AlertParameter4>$Data/Context/SampleValue$</AlertParameter4>
+            <AlertParameter5>$Data/Context/TimeSampled$</AlertParameter5>
+          </AlertParameters>
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="ThresholdNotBreached" MonitorTypeStateID="ThresholdNotBreached" HealthState="Success" />
+          <OperationalState ID="ThresholdBreached" MonitorTypeStateID="ThresholdBreached" HealthState="Warning" />  <!-- HealthState = Warning or Error -->
+        </OperationalStates>
+        <Configuration>
+          <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName> <!--Might have to modify number of host references depending on your target class chosen -->
+          <CounterName>##CounterName##</CounterName>
+          <ObjectName>##ObjectName##</ObjectName>
+          <InstanceName>##InstanceName##</InstanceName>  <!-- Set this to the instance name as seen in Perfmon.  Ignore multiple instances with the same name with #1, #2, etc as it will wildcard these by default.  Can also use * wildcard before or after text to match specific instances.  Leave blank if setting AllInstances to true -->
+		  <AllInstances>false</AllInstances>  <!-- Default is false.  Set this to true if you wish to monitor all instances and leave InstanceName blank -->
+          <Frequency>##FrequencySeconds##</Frequency>  <!-- 60 seconds is a good recommended interval for a native module perfmon monitor -->
+		  <!-- <ScaleBy></ScaleBy> -->  <!-- If monitoring CPU for a process you must scale by number of logical processors such as $Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/LogicalProcessors$ -->
+          <Threshold>##Threshold##</Threshold>
+          <Direction>greater</Direction>  <!-- Threshold comparison of greater, greaterequal, less, and lessequal -->
+          <NumSamples>##Samples##</NumSamples>
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor">
+          <Name>##CompanyID## ##AppName## ##CounterName## ##InstanceName## Perf Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor" SubElementID="ThresholdNotBreached">
+          <Name>ThresholdNotBreached</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor" SubElementID="ThresholdBreached">
+          <Name>ThresholdBreached</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Perf.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##ObjectName## ##CounterName## has breached a threshold</Name>
+          <Description>The monitor breached a threshold
+
+Object: {0}
+Counter {1}
+Instance {2}
+Has a value {3} 
+At time {4}
+          </Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
