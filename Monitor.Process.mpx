@@ -13,7 +13,7 @@ Description:
   MaxProcessCount - The maximum number of processes you expect to be present
   MatchCount - The number of times a threshold must be breached before generating an alert.  (2 or more is a good default to limit noise from a transitent process recycle)
 
-Version: 1.4
+Version: 1.5
 LastModified: 20-Aug-2021
 %%
 
