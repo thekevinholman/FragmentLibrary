@@ -1,4 +1,4 @@
-# FragmentLibrary Version 2021.08.22
+# FragmentLibrary Version 2022.02.07
 SCOM - Management Pack VSAE and Silect Fragment Library
 
 ## [Download Here][Download]
@@ -8,6 +8,11 @@ SCOM - Management Pack VSAE and Silect Fragment Library
 https://kevinholman.com/2016/06/04/authoring-management-packs-the-fast-and-easy-way-using-visual-studio/
 
 Version History:
+* 2022.02.07
+	* New Fragments:
+		* Monitor.Process.ProcessCount.Wildcard.PowerShell.mpx
+		* Monitor.TimedScript.PowerShell.FileCountInFolderThreshold.mpx
+		* Class.Group.ADGroupWindowsComputersAndWatchers.mpx
 * 2021.08.22
 	* New Fragments:
 		* Class.Group.ADGroupWindowsComputers.WithClusters.mpx
