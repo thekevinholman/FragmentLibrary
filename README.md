@@ -8,6 +8,10 @@ SCOM - Management Pack VSAE and Silect Fragment Library
 https://kevinholman.com/2016/06/04/authoring-management-packs-the-fast-and-easy-way-using-visual-studio/
 
 Version History:
+* 2022.02.24
+	* Bug Fixes and Updates:
+		* Class.And.Discovery.MultiRoleHostedByParentClass.mpx
+		* Class.And.Discovery.MultiRoleHostedByParentClass_Example.mpx
 * 2022.02.07
 	* New Fragments:
 		* Monitor.Process.ProcessCount.Wildcard.PowerShell.mpx
