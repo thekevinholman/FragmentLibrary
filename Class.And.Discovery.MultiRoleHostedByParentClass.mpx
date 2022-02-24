@@ -9,8 +9,8 @@ Description:
   CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
   AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED
 	
-Version: 1.1
-LastModified: 20-May-2020
+Version: 1.2
+LastModified: 24-Feb-2022
 %%
 
 In this fragment you need to replace:
@@ -50,9 +50,9 @@ This fragment depends on references:
         </DiscoveryTypes>
         <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.WmiProviderWithClassSnapshotDataMapper">
           <NameSpace>root\cimv2</NameSpace>
-          <Query><![CDATA[##WMIQuery##]]></Query>
+          <Query><![CDATA[SELECT Name FROM Win32_ServerFeature WHERE ID = 18]]></Query>
           <!-- Example query here:  <Query><![CDATA[select * from Win32_Service where Name = 'spooler' and startmode = 'Manual']]></Query> -->
-          <Frequency>14400</Frequency>
+          <Frequency>86397</Frequency>
           <ClassId>$MPElement[Name="##CompanyID##.##AppName##.Class"]$</ClassId>
           <InstanceSettings>
             <Settings>
