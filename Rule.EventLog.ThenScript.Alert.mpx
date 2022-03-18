@@ -1,0 +1,250 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A RULE with a composite datasource to monitor for an EVENT then run a PowerShell script to get additional propertybag data then Alert
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  UniqueID - Is a unique short description of the workflow purpose (NO SPACES OR SPECIAL CHARACTERS ALLOWED) such as "CountFilesInFolder"  
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem     
+  LogName - is the Event Log Name (System, Application, Operations Manager, etc)  
+  EventID - is a SINGLE event ID for an explicit EQUALS match
+  EventSource - is a string based Event Source for an explicit EQUALS match
+
+Version: 1.0
+LastModified: 18-Mar-2022
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##UniqueID##  
+  ##ClassID##
+  ##LogName##  
+  ##EventID##
+  ##EventSource##
+
+This fragment depends on references:
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"  
+
+@@Author=Kevin Holman@@  
+--> 
+  <TypeDefinitions>
+    <ModuleTypes>
+      <DataSourceModuleType ID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+          <xsd:element minOccurs="1" name="ComputerName" type="xsd:string" />
+          <xsd:element minOccurs="1" name="LogName" type="xsd:string" />
+          <xsd:element minOccurs="1" name="EventID" type="xsd:integer" />
+          <xsd:element minOccurs="1" name="EventSource" type="xsd:string" />
+        </Configuration>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+			  <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.EventProvider">
+				<ComputerName>$Config/ComputerName$</ComputerName>
+				<LogName>$Config/LogName$</LogName>
+				<Expression>
+				  <And>
+					<Expression>
+					  <SimpleExpression>
+						<ValueExpression>
+						  <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+						</ValueExpression>
+						<Operator>Equal</Operator>  
+						<ValueExpression>
+						  <Value Type="UnsignedInteger">$Config/EventID$</Value>
+						</ValueExpression>
+					  </SimpleExpression>
+					</Expression>
+					<Expression>
+					  <SimpleExpression>
+						<ValueExpression>
+						  <XPathQuery Type="String">PublisherName</XPathQuery>
+						</ValueExpression>
+						<Operator>Equal</Operator>
+						<ValueExpression>
+						  <Value Type="String">$Config/EventSource$</Value>
+						</ValueExpression>
+					  </SimpleExpression>
+					</Expression>
+				  </And>
+				</Expression>
+			  </DataSource>
+              <ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagProbe">
+                <ScriptName>##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.DS.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  Script to get more data after an event
+#  Modify the script to sdo what you want in powershell after the event is found
+#
+#  Author: Kevin Holman
+#  v1.0
+#=================================================================================
+param($EventDisplayNumber,$PublisherName,$EventLog,$EventDescription,$Param1)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $EventDisplayNumber = "100"
+# $PublisherName = "TEST"
+# $EventDescription = "this is event description data"
+# $Param1 = "this is param1 data"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.DS.ps1"
+$EventID = "7334"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nRunning as ($whoami). `nEventID: ($EventDisplayNumber). `nEventSource: ($PublisherName). `nEvent Log: ($EventLog). `nEventDescription: ($EventDescription). `nParam1: ($Param1).")
+#=================================================================================
+
+
+# PropertyBag Script section - Monitoring scripts get this
+#=================================================================================
+# Load SCOM PropertyBag function
+$bag = $momapi.CreatePropertyBag()
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+#Add your stuff in Powershell here
+#Sample data variable payload:
+$Stuff = "foo"
+
+#Put stuff in propertybags:
+$bag.AddValue('EventDisplayNumber',$EventDisplayNumber)
+$bag.AddValue('PublisherName',$PublisherName)
+$bag.AddValue('EventLog',$EventLog)
+$bag.AddValue('EventDescription',$EventDescription)
+$bag.AddValue('Param1',$Param1)
+$bag.AddValue('Stuff',$Stuff)
+
+# Return all bags
+$bag
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+                </ScriptBody>
+                <Parameters>
+                  <Parameter>
+                    <Name>EventDisplayNumber</Name>
+                    <Value>$Data/EventDisplayNumber$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>PublisherName</Name>
+                    <Value>$Data/PublisherName$</Value>
+                  </Parameter>
+                  <Parameter>
+                    <Name>EventLog</Name>
+                    <Value>$Data/Channel$</Value>
+                  </Parameter>				  
+                  <Parameter>
+                    <Name>EventDescription</Name>
+                    <Value>$Data/EventDescription$</Value>
+                  </Parameter>				  
+                  <Parameter>
+                    <Name>Param1</Name>
+                    <Value>$Data/Params/Param[1]$</Value>
+                  </Parameter>
+                </Parameters>
+                <TimeoutSeconds>120</TimeoutSeconds>
+              </ProbeAction>	
+            </MemberModules>
+            <Composition>
+              <Node ID="PA">
+                <Node ID="DS" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.PropertyBagData</OutputType>
+      </DataSourceModuleType>
+    </ModuleTypes>		
+  </TypeDefinitions>
+  <Monitoring>
+    <Rules>
+      <Rule ID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.Rule" Enabled="true" Target="##ClassID##" ConfirmDelivery="true" Remotable="true" Priority="Normal" DiscardLevel="100">
+        <Category>Custom</Category>
+        <DataSources>
+          <DataSource ID="DS" TypeID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.DS">
+            <ComputerName>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/NetworkName$</ComputerName>
+            <LogName>##LogName##</LogName>
+            <EventID>##EventID##</EventID>
+            <EventSource>##EventSource##</EventSource>			
+          </DataSource>
+        </DataSources>
+        <WriteActions>
+          <WriteAction ID="Alert" TypeID="Health!System.Health.GenerateAlert">
+            <Priority>1</Priority>
+            <Severity>1</Severity>
+            <AlertOwner></AlertOwner>
+            <AlertMessageId>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.Rule.AlertMessage"]$</AlertMessageId>
+            <AlertParameters>
+              <AlertParameter1>$Data/Property[@Name='EventDisplayNumber']$</AlertParameter1>
+              <AlertParameter2>$Data/Property[@Name='PublisherName']$</AlertParameter2>
+              <AlertParameter3>$Data/Property[@Name='EventLog']$</AlertParameter3>			  
+              <AlertParameter4>$Data/Property[@Name='EventDescription']$</AlertParameter4>
+              <AlertParameter5>$Data/Property[@Name='Param1']$</AlertParameter5>
+              <AlertParameter6>$Data/Property[@Name='Stuff']$</AlertParameter6>			  
+            </AlertParameters>
+            <Suppression>
+              <SuppressionValue>$Data/Property[@Name='EventDisplayNumber']$</SuppressionValue>
+              <SuppressionValue>$Data/Property[@Name='PublisherName']$</SuppressionValue>
+              <SuppressionValue>$Data/Property[@Name='Stuff']$</SuppressionValue>			  
+            </Suppression>
+          </WriteAction>
+        </WriteActions>
+      </Rule>
+    </Rules>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.Rule.AlertMessage" />
+    </StringResources>
+  </Presentation>  
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.Rule">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Event Then Script Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.EventLogThenScriptThenAlert.Rule.AlertMessage">
+          <Name>##CompanyID## ##AppName## ##UniqueID## Event Alert</Name>
+          <Description>A matching event was found in the log:
+Event ID: {0} 
+Event Source: {1} 
+Event Log: {2}
+Event Description: {3}
+Event Parameter 1: {4}
+Additional Data collected from PowerShell: {5}</Description>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
