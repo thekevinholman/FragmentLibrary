@@ -10,8 +10,8 @@ Description:
   SQLDBName - the database name to query
   SQLQuery - the SQL query that will return a list of FQDN names ONLY
 
-Version: 1.0
-LastModified: 25-Jul-2019
+Version: 1.1
+LastModified: 29-Mar-2022
 %%
 
 In this fragment you need to replace:
@@ -55,7 +55,7 @@ This fragment depends on references:
           <DiscoveryClass TypeID="##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group" />
         </DiscoveryTypes>
         <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
-          <IntervalSeconds>86333</IntervalSeconds>
+          <IntervalSeconds>86400</IntervalSeconds>
 		  <SyncTime></SyncTime>
           <ScriptName>##CompanyID##.##AppName##.##GroupNameNoSpaces##.SQLBased.Group.Discovery.ps1</ScriptName>
           <ScriptBody>
