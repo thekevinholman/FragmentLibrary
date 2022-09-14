@@ -8,8 +8,8 @@ Description:
   CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
   AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED
 	
-Version: 1.1
-LastModified: 19-Aug-2020
+Version: 1.2
+LastModified: 14-Sep-2022
 %%
 
 In this fragment you need to replace:
@@ -64,7 +64,7 @@ This fragment depends on references:
             </RegistryAttributeDefinition>
           </RegistryAttributeDefinitions>
           <Frequency>86393</Frequency>
-          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.AppRole1.Class"]$</ClassId>
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.Class"]$</ClassId>
           <InstanceSettings>
             <Settings>
               <Setting>
@@ -158,7 +158,7 @@ This fragment depends on references:
             </RegistryAttributeDefinition>
           </RegistryAttributeDefinitions>
           <Frequency>86393</Frequency>
-          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.AppRole1.Class"]$</ClassId>
+          <ClassId>$MPElement[Name="##CompanyID##.##AppName##.AppRole2.Class"]$</ClassId>
           <InstanceSettings>
             <Settings>
               <Setting>
