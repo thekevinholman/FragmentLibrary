@@ -3,16 +3,15 @@
 %%
 Description:
   A CLASS and DISCOVERY and MONITOR to discover services using a WMI wildcard query.
-  Includes a recovery script to recover the service.  The recovery is disabled by default.
+  Includes a recovery script to recover the service.  The recovery is DISABLED by default.
   This will discover the service name, and pass the service name property to a service monitor.
-  NOTE!!!  For the rules to work, you will need to remove the "%" in the expression for the contains substring match
   CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
   AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED  
   ServiceNameWildcard - is a WHQL Wildcard match on the service name such as "Spool%" or "%pool%" without the quotes
   UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
 	
-Version: 1.0
-LastModified: 27-May-2020
+Version: 1.1
+LastModified: 14-Sept-2022
 %%
 
 In this fragment you need to replace:
@@ -33,6 +32,7 @@ This fragment depends on references:
       <ClassTypes>
         <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Base="Windows!Microsoft.Windows.LocalApplication" Accessibility="Public" Abstract="false" Hosted="true" Singleton="false">
 		  <Property ID="ServiceName" Type="string" AutoIncrement="false" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+		  <Property ID="ServiceDisplayName" Type="string" AutoIncrement="false" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
 		</ClassType>
       </ClassTypes>
     </EntityTypes>
@@ -161,6 +161,7 @@ This fragment depends on references:
         <DiscoveryTypes>
 			<DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class">
 			  <Property PropertyID="ServiceName" />
+			  <Property PropertyID="ServiceDisplayName" />			  
 			</DiscoveryClass>
         </DiscoveryTypes>
         <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.WmiProviderWithClassSnapshotDataMapper">
@@ -181,6 +182,10 @@ This fragment depends on references:
               <Setting>
                 <Name>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Name>
                 <Value>$Data/Property[@Name='Name']$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceDisplayName$</Name>
+                <Value>$Data/Property[@Name='DisplayName']$</Value>
               </Setting>			  
               <!-- If you have additional class properties you want to provide values from WMI add them here as additional instance settings. -->
             </Settings>
@@ -225,7 +230,7 @@ This fragment depends on references:
                       <XPathQuery Type="String">Params/Param[2]</XPathQuery>
                     </ValueExpression>
                     <Operator>ContainsSubstring</Operator>
-                    <Pattern>##ServiceNameWildCard##</Pattern>
+                    <Pattern>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Pattern>
                   </RegExExpression>
                 </Expression>
               </And>
@@ -297,7 +302,7 @@ This fragment depends on references:
                       <XPathQuery Type="String">Params/Param[2]</XPathQuery>
                     </ValueExpression>
                     <Operator>ContainsSubstring</Operator>
-                    <Pattern>##ServiceNameWildcard##</Pattern>
+                    <Pattern>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Pattern>
                   </RegExExpression>
                 </Expression>
               </And>
@@ -369,7 +374,7 @@ This fragment depends on references:
                       <XPathQuery Type="String">Params/Param[2]</XPathQuery>
                     </ValueExpression>
                     <Operator>ContainsSubstring</Operator>
-                    <Pattern>##ServiceNameWildcard##</Pattern>
+                    <Pattern>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Pattern>
                   </RegExExpression>
                 </Expression>
               </And>
@@ -441,7 +446,7 @@ This fragment depends on references:
                       <XPathQuery Type="String">Params/Param[2]</XPathQuery>
                     </ValueExpression>
                     <Operator>ContainsSubstring</Operator>
-                    <Pattern>##ServiceNameWildcard##</Pattern>
+                    <Pattern>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Pattern>
                   </RegExExpression>
                 </Expression>
               </And>
@@ -498,8 +503,8 @@ This fragment depends on references:
         <Configuration>
           <ComputerName />
           <ServiceName>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</ServiceName>
-		  <IntervalSeconds>30</IntervalSeconds> <!-- How often to check the state of the service.  Every 30 seconds is the default.-->
-		  <Samples>2</Samples> <!-- The number of consecutive times a service is detected as not running before changing state of the monitor. 2 samples is the default -->
+		  <IntervalSeconds>60</IntervalSeconds> <!-- How often to check the state of the service -->
+		  <Samples>3</Samples> <!-- The number of consecutive times a service is detected as not running before changing state of the monitor -->
         </Configuration>
       </UnitMonitor>	  
     </Monitors>	
@@ -514,14 +519,15 @@ This fragment depends on references:
 #
 #  Author:  Kevin Holman
 #
-#  Version:  1.0
+#  Version:  1.1
 #
 #=================================================================================
-param($ServiceName)
+param([string]$ServiceName,[string]$ServiceDisplayName)
 
 # Manual Testing section - put stuff here for manually testing script - typically parameters:
 #=================================================================================
 # $ServiceName = "spooler"
+# $ServiceDisplayName = "Print Spooler"
 #=================================================================================
 
 
@@ -548,8 +554,9 @@ $momapi = New-Object -comObject MOM.ScriptAPI
 #=================================================================================
 
 #Log script event that we are starting task
-$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Recovery script for service: ($ServiceName) is starting. `n Running as ($whoami).")
-write-host "Recovery script for service: ($ServiceName) is starting. Running as ($whoami)."
+$Message = "`nRecovery script for service: ($ServiceName) is starting. `nRunning as ($whoami)."
+$momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+write-host $Message
 
 #Get the service object
 $Svc = Get-Service $ServiceName
@@ -557,8 +564,9 @@ $Svc = Get-Service $ServiceName
 #Check to ensure the service exists:
 IF (!$Svc)
 {
-  $momapi.LogScriptEvent($ScriptName,3751,2, "`n Service ($ServiceName) was not found on this computer. `n This indicates a misconfiguration of the monitor. `n Error is ($error)")
-  write-host "Service ($ServiceName) was not found on this computer. This indicates a misconfiguration of the monitor. Error is ($error)"
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) was not found on this computer. `nThis indicates a misconfiguration of the monitor. `nError is ($error)"
+  $momapi.LogScriptEvent($ScriptName,3751,2,$Message)
+  write-host $Message
   EXIT
 }
 
@@ -568,14 +576,16 @@ IF (!$Svc)
 #Do not continue is service is already running
 IF ($SvcStatus -eq "Running")
 {
-  $momapi.LogScriptEvent($ScriptName,3752,2, "`n Service ($ServiceName) was found to be in the Running state. `n This indicates a misconfiguration of the monitor. `n No recovery action will be taken.")
-  write-host "Service ($ServiceName) was found to be in the Running state. This indicates a misconfiguration of the monitor. No recovery action will be taken."
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) was found to be in the Running state. `nThis indicates a misconfiguration of the monitor. `nNo recovery action will be taken."
+  $momapi.LogScriptEvent($ScriptName,3752,2,$Message)
+  write-host $Message
   EXIT  
 }
 
-#Log recovery information event
-$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) was found to be in the ($SvcStatus) state.  Recovery will be attempted.")
-write-host "Service: ($ServiceName) was found to be in the ($SvcStatus) state.  Recovery will be attempted."
+#Since we assume the service is not Running - Log recovery information event
+$Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) was found to be in the ($SvcStatus) state.  First attempt at recovery starting now."
+$momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+write-host $Message
 
 #Attempt First Recovery
 Restart-Service -Name $ServiceName -Force
@@ -589,8 +599,9 @@ $SvcStatus = $Svc.Status
 IF ($SvcStatus -ne "Running")
 {
   #Attempt Second Recovery
-  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) second attempt at recovering starting now.")
-  write-host "Service: ($ServiceName) second attempt at recovering starting now."  
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) second attempt at recovery starting now."
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+  write-host $Message 
   Restart-Service -Name $ServiceName -Force
   Start-Sleep 20
   $Svc = Get-Service $ServiceName
@@ -600,8 +611,9 @@ IF ($SvcStatus -ne "Running")
 IF ($SvcStatus -ne "Running")
 {
   #Attempt Third Recovery
-  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) third attempt at recovering starting now.")
-  write-host "Service: ($ServiceName) third attempt at recovering starting now."    
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) third attempt at recovery starting now."
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+  write-host $Message    
   Restart-Service -Name $ServiceName -Force
   Start-Sleep 20
   $Svc = Get-Service $ServiceName
@@ -611,14 +623,16 @@ IF ($SvcStatus -ne "Running")
 IF ($SvcStatus -eq "Running")
 {
   #Log event of a successful restart
-  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Service: ($ServiceName) was successfully restarted and then detected to be in the Running state.")
-  write-host "Service: ($ServiceName) was successfully restarted and then detected to be in the Running state."
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) was successfully restarted and then detected to be in the Running state."
+  $momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+  write-host $Message
 }
 ELSE
 {
-  #Log event of a successful restart
-  $momapi.LogScriptEvent($ScriptName,3753,2,"`n Service: ($ServiceName) is not running. `n Recovery was attempted and failed. `n Manual interventon is required. `n The last detected service status was ($SvcStatus).") 
-  write-host "Service: ($ServiceName) is not running. Recovery was attempted and failed. Manual interventon is required. The last detected service status was ($SvcStatus)."
+  #Log event of a failed restart
+  $Message = "`nService with Name: ($ServiceName) and DisplayName: ($ServiceDisplayName) is not running. `nRecovery was attempted and failed. `nManual interventon is required. `nThe last detected service status was ($SvcStatus)."
+  $momapi.LogScriptEvent($ScriptName,3753,2,$Message) 
+  write-host $Message
 }
 
 # Check to see if this recovery script has been run multiple times in the last x minutes for detection of too many recovery actions
@@ -627,8 +641,9 @@ $Events = Get-EventLog -LogName 'Operations Manager' -After $StartTime.AddMinute
 $EventCount = $Events.Count
 IF ($EventCount -ge 3)
 {
-  $momapi.LogScriptEvent($ScriptName,3754,2,"`n Too many service recoveries have been attempted for ($ServiceName). `n ($EventCount) recoveries are detected in the event log. `n Manual interventon is required.")
-  write-host "Too many service recoveries have been attempted for ($ServiceName). ($EventCount) recoveries are detected in the event log. Manual interventon is required."
+  $Message = "`nToo many service recoveries have been attempted for service with name: ($ServiceName) and DisplayName: ($ServiceDisplayName). `n($EventCount) recoveries are detected in the event log. `nManual interventon is required."
+  $momapi.LogScriptEvent($ScriptName,3754,2,$Message)
+  write-host $Message
 }
 
 # End of script section
@@ -636,8 +651,9 @@ IF ($EventCount -ge 3)
 #Log an event for script ending and total execution time.
 $EndTime = Get-Date
 $ScriptTime = ($EndTime - $StartTime).TotalSeconds
-$momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Runtime: ($ScriptTime) seconds.")
-write-host "Script Completed. Script Runtime: ($ScriptTime) seconds."
+$Message = "`nRecovery Script Completed. `nScript Runtime: ($ScriptTime) seconds."
+$momapi.LogScriptEvent($ScriptName,$EventID,0,$Message)
+write-host $Message
 #=================================================================================
 # End of script		  
 		  </ScriptBody>
@@ -646,6 +662,10 @@ write-host "Script Completed. Script Runtime: ($ScriptTime) seconds."
 			  <Name>ServiceName</Name>
 			  <Value>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Value>									
 			</Parameter>
+			<Parameter>
+			  <Name>ServiceDisplayName</Name>
+			  <Value>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceDisplayName$</Value>									
+			</Parameter>			
 		  </Parameters>		  
 		  <TimeoutSeconds>240</TimeoutSeconds>
 		</WriteAction>
@@ -687,34 +707,34 @@ write-host "Script Completed. Script Runtime: ($ScriptTime) seconds."
           <Description>Service {0} is not running on {1}</Description>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Recovery">
-          <Name>##CompanyID## ##AppName## ##ServiceNameWildCard## Service Recovery</Name>
+          <Name>##CompanyID## ##AppName## ##UniqueID## Service Recovery</Name>
         </DisplayString>
 		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule">
-          <Name>##CompanyID## ##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service Not Found</Name>
+          <Name>##CompanyID## ##AppName## ##UniqueID## Service Recovery Failed - Service Not Found</Name>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceNotFound.Recovery.Rule.AlertMessage">
-          <Name>##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service Not Found</Name>
+          <Name>##AppName## ##UniqueID## Service Recovery Failed - Service Not Found</Name>
           <Description>Event Description: {0}</Description>
         </DisplayString>		  
 		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule">
-          <Name>##CompanyID## ##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service Already Running</Name>
+          <Name>##CompanyID## ##AppName## ##UniqueID## Service Recovery Failed - Service Already Running</Name>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceFoundRunning.Recovery.Rule.AlertMessage">
-          <Name>##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service Already Running</Name>
+          <Name>##AppName## ##UniqueID## Service Recovery Failed - Service Already Running</Name>
           <Description>Event Description: {0}</Description>
         </DisplayString>
 		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule">
-          <Name>##CompanyID## ##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service is not running</Name>
+          <Name>##CompanyID## ##AppName## ##UniqueID## Service Recovery Failed - Service is not running</Name>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.ServiceRecoveryFailed.Recovery.Rule.AlertMessage">
-          <Name>##AppName## ##ServiceNameWildCard## Service Recovery Failed - Service is not running</Name>
+          <Name>##AppName## ##UniqueID## Service Recovery Failed - Service is not running</Name>
           <Description>Event Description: {0}</Description>
         </DisplayString>
 		<DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule">
-          <Name>##CompanyID## ##AppName## ##ServiceNameWildCard## Service Recovery has attempted to recover the service too many times</Name>
+          <Name>##CompanyID## ##AppName## ##UniqueID## Service Recovery has attempted to recover the service too many times</Name>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.TooManyRecoveryAttempts.Recovery.Rule.AlertMessage">
-          <Name>##AppName## ##ServiceNameWildCard## Service Recovery has attempted to recover the service too many times</Name>
+          <Name>##AppName## ##UniqueID## Service Recovery has attempted to recover the service too many times</Name>
           <Description>Event Description: {0}</Description>
         </DisplayString>		
       </DisplayStrings>

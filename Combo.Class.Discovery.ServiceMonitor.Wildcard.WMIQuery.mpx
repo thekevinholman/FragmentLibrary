@@ -9,8 +9,8 @@ Description:
   ServiceNameWildcard - is a WHQL Wildcard match on the service name such as "Spool%" or "%pool%" without the quotes
   UniqueID - We need a Unique ID to reuse the fragment within the same MP.  Use a shortened descriptive name with NO SPACES OR SPECIAL CHARACTERS ALLOWED
 	
-Version: 1.0
-LastModified: 05-Sep-2019
+Version: 1.1
+LastModified: 14-Sep-2022
 %%
 
 In this fragment you need to replace:
@@ -30,6 +30,7 @@ This fragment depends on references:
       <ClassTypes>
         <ClassType ID="##CompanyID##.##AppName##.##UniqueID##.Class" Base="Windows!Microsoft.Windows.LocalApplication" Accessibility="Public" Abstract="false" Hosted="true" Singleton="false">
 		  <Property ID="ServiceName" Type="string" AutoIncrement="false" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />
+		  <Property ID="ServiceDisplayName" Type="string" AutoIncrement="false" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" Required="false" Scale="0" />		  
 		</ClassType>
       </ClassTypes>
     </EntityTypes>
@@ -158,6 +159,7 @@ This fragment depends on references:
         <DiscoveryTypes>
 			<DiscoveryClass TypeID="##CompanyID##.##AppName##.##UniqueID##.Class">
 			  <Property PropertyID="ServiceName" />
+			  <Property PropertyID="ServiceDisplayName" />			  
 			</DiscoveryClass>
         </DiscoveryTypes>
         <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.WmiProviderWithClassSnapshotDataMapper">
@@ -178,6 +180,10 @@ This fragment depends on references:
               <Setting>
                 <Name>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</Name>
                 <Value>$Data/Property[@Name='Name']$</Value>
+              </Setting>
+              <Setting>
+                <Name>$MPElement[Name="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceDisplayName$</Name>
+                <Value>$Data/Property[@Name='DisplayName']$</Value>
               </Setting>			  
               <!-- If you have additional class properties you want to provide values from WMI add them here as additional instance settings. -->
             </Settings>
@@ -195,7 +201,8 @@ This fragment depends on references:
           <AlertSeverity>Error</AlertSeverity> <!-- Error/Warning/Information/MatchMonitorHealth -->
           <AlertParameters>
             <AlertParameter1>$Data/Context/Property[@Name='Name']$</AlertParameter1>
-            <AlertParameter2>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</AlertParameter2>
+            <AlertParameter2>$Data/Context/Property[@Name='DisplayName']$</AlertParameter2>			
+            <AlertParameter3>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</AlertParameter3>
           </AlertParameters>
         </AlertSettings>
         <OperationalStates>
@@ -205,8 +212,8 @@ This fragment depends on references:
         <Configuration>
           <ComputerName />
           <ServiceName>$Target/Property[Type="##CompanyID##.##AppName##.##UniqueID##.Class"]/ServiceName$</ServiceName>
-		  <IntervalSeconds>30</IntervalSeconds> <!-- How often to check the state of the service.  Every 30 seconds is the default.-->
-		  <Samples>2</Samples> <!-- The number of consecutive times a service is detected as not running before changing state of the monitor. 2 samples is the default -->
+		  <IntervalSeconds>60</IntervalSeconds> <!-- How often to check the state of the service -->
+		  <Samples>3</Samples> <!-- The number of consecutive times a service is detected as not running before changing state of the monitor -->
         </Configuration>
       </UnitMonitor>	  
     </Monitors>	
@@ -223,7 +230,10 @@ This fragment depends on references:
           <Name>##CompanyID## ##AppName## ##UniqueID## Class</Name>
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="ServiceName">
-          <Name>ServiceName</Name>
+          <Name>Service Name</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class" SubElementID="ServiceDisplayName">
+          <Name>Service Display Name</Name>
         </DisplayString>		
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Class.Discovery">
           <Name>##CompanyID## ##AppName## ##UniqueID## Class Discovery</Name>
@@ -239,7 +249,7 @@ This fragment depends on references:
         </DisplayString>
         <DisplayString ElementID="##CompanyID##.##AppName##.##UniqueID##.Service.Monitor.AlertMessage">
           <Name>##AppName## ##UniqueID## service is not running</Name>
-          <Description>Service {0} is not running on {1}</Description>
+          <Description>Service with name: {0} and display name: {1} is not running on computer: {2}</Description>
         </DisplayString>		
       </DisplayStrings>
       <KnowledgeArticles></KnowledgeArticles>

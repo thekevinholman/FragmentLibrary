@@ -14,8 +14,8 @@ Description:
   SQLQuery - is the SQL query you wish to run such as "SELECT COUNT(*) FROM Alerts"
   RowCountThreshold - the threshold to change monitor state.  By default any results great or equal to will be considered unhealthy
   
-Version: 1.7
-LastModified: 16-Jul-2021
+Version: 1.8
+LastModified: 14-Jul-2022
 %%
 
 In this fragment you need to replace:
@@ -307,7 +307,7 @@ $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nRuntime: ($
 					  </ValueExpression>
 					  <Operator>NotEqual</Operator>
 					  <ValueExpression>
-						<Value Type="String">Complete</Value>
+						<Value Type="String">Completed</Value>
 					  </ValueExpression>
 					</SimpleExpression>
 				  </Expression>				  
