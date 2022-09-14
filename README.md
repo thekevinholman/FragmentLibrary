@@ -17,7 +17,8 @@ Version History:
 		* Class.And.Discovery.Unix.ShellCommand.mpx
 		* Monitor.TimedScript.PowerShell.SQLQuery.mpx
 		* Combo.Class.Discovery.ServiceMonitor.Wildcard.WMIQuery.mpx
-		* Combo.Class.Discovery.ServiceMonitor.Wildcard.WMIQuery.PSRecovery.mpx		
+		* Combo.Class.Discovery.ServiceMonitor.Wildcard.WMIQuery.PSRecovery.mpx
+		* Class.And.Discovery.MultiRole.mpx
 * 2022.03.18
 	* New Fragments:
 		* Rule.EventLog.ThenScript.Alert.mpx
