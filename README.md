@@ -8,6 +8,11 @@ SCOM - Management Pack VSAE and Silect Fragment Library
 https://kevinholman.com/2016/06/04/authoring-management-packs-the-fast-and-easy-way-using-visual-studio/
 
 Version History:
+* 2023.05.23
+	* New Fragments:
+		* Class.Group.WindowsComputersAndWatchers.Contains.ClassInstanceWithPropertyMatch.mpx
+		* Rule.TimedPSScript.CD.Alert.mpx
+		* Monitor.EventLog.RepeatedEvent.Alert.EventReset.mpx
 * 2022.09.14
 	* New Fragments:
 		* Class.Group.PowerShellWindowsComputersWithUnhealthyMonitor.mpx
