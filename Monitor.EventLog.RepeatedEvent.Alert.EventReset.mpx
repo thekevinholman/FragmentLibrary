@@ -1,0 +1,163 @@
+﻿<ManagementPackFragment SchemaVersion="2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--
+%%
+Description:
+  A Monitor to ALERT on a specific EventID and Event Source REPEATED within a specified time frame
+  CompanyID - is a short abbreviation for your company with NO SPACES OR SPECIAL CHARACTERS ALLOWED
+  AppName - is a short name for your app with NO SPACES OR SPECIAL CHARACTERS ALLOWED 
+  ClassID - is the targeted class such as your custom class or Windows!Microsoft.Windows.Server.OperatingSystem
+  LogName - is the Event Log Name for the UNHEALTHY event (System, Application, Operations Manager, etc)  
+  EventID - is a SINGLE event ID for an explicit EQUALS match for the UNHEALTHY event
+  EventSource - is a string based Event Source for an explicit EQUALS match for the UNHEALTHY event
+  ResetEventID - is a SINGLE event ID for an explicit EQUALS match for the HEALTHY event
+  ResetEventSource - is a string based Event Source for an explicit EQUALS match for the HEALTHY event
+  ResetLogName - is the Event Log Name for the HEALTHY event (System, Application, Operations Manager, etc)
+  Interval - is the time period window in seconds to look for UNHEALTHY event
+  Count - is the number of UNHEALTHY events in the time period Interval to drive UNHEALTHY monitor state
+
+Version: 1.0
+LastModified: 23-May-2023
+%%
+
+In this fragment you need to replace:
+  ##CompanyID##
+  ##AppName##
+  ##ClassID##
+  ##EventID##
+  ##EventSource##
+  ##LogName##
+  ##ResetEventID##
+  ##ResetEventSource##
+  ##ResetLogName##
+  ##Interval##
+  ##Count##
+
+This fragment depends on references:
+  RequiredReference: Alias="System", ID="System.Library"
+  RequiredReference: Alias="Windows", ID="Microsoft.Windows.Library"
+  RequiredReference: Alias="Health", ID="System.Health.Library"	
+
+@@Author=Kevin Holman@@  
+--> 
+  <Monitoring>
+    <Monitors>
+      <UnitMonitor ID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor" Accessibility="Public" Enabled="true" Target="##ClassID##" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="Windows!Microsoft.Windows.RepeatedEventLogSingleEventLog2StateMonitorType" ConfirmDelivery="true">
+        <Category>Custom</Category>
+        <AlertSettings AlertMessage="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor.AlertMessage">
+          <AlertOnState>Error</AlertOnState>
+          <AutoResolve>true</AutoResolve>
+          <AlertPriority>Normal</AlertPriority>
+          <AlertSeverity>Error</AlertSeverity>
+          <AlertParameters>
+            <AlertParameter1>$Data/Context/Context/DataItem/EventDisplayNumber$</AlertParameter1>
+            <AlertParameter2>$Data/Context/Context/DataItem/PublisherName$</AlertParameter2>
+            <AlertParameter3>$Data/Context/Context/DataItem/EventDescription$</AlertParameter3>
+          </AlertParameters>
+        </AlertSettings>
+        <OperationalStates>
+          <OperationalState ID="GoodCondition" MonitorTypeStateID="EventRaised" HealthState="Success" />
+          <OperationalState ID="BadCondition" MonitorTypeStateID="RepeatedEventRaised" HealthState="Error" />
+        </OperationalStates>
+        <Configuration>
+          <ComputerName>.</ComputerName>
+          <LogName>##ResetLogName##</LogName>
+          <Expression>
+            <And>
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Equal</Operator>
+                  <ValueExpression>
+                    <Value Type="UnsignedInteger">##ResetEventID##</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="String">PublisherName</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Equal</Operator>
+                  <ValueExpression>
+                    <Value Type="String">##ResetEventSource##</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+            </And>
+          </Expression>
+          <RepeatedComputerName>.</RepeatedComputerName>
+          <RepeatedLogName>##LogName##</RepeatedLogName>
+          <RepeatedExpression>
+            <And>
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="UnsignedInteger">EventDisplayNumber</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Equal</Operator>
+                  <ValueExpression>
+                    <Value Type="UnsignedInteger">##EventID##</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+              <Expression>
+                <SimpleExpression>
+                  <ValueExpression>
+                    <XPathQuery Type="String">PublisherName</XPathQuery>
+                  </ValueExpression>
+                  <Operator>Equal</Operator>
+                  <ValueExpression>
+                    <Value Type="String">##EventSource##</Value>
+                  </ValueExpression>
+                </SimpleExpression>
+              </Expression>
+            </And>
+          </RepeatedExpression>
+          <Consolidator>
+            <ConsolidationProperties />
+            <TimeControl>
+              <WithinTimeSchedule>
+                <Interval>##Interval##</Interval>
+              </WithinTimeSchedule>
+            </TimeControl>
+            <CountingCondition>
+              <Count>##Count##</Count>
+              <CountMode>OnNewItemTestOutputRestart_OnTimerSlideByOne</CountMode>
+            </CountingCondition>
+          </Consolidator>
+        </Configuration>
+      </UnitMonitor>
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <StringResources>
+      <StringResource ID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor.AlertMessage" />
+    </StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor">
+          <Name>##CompanyID## ##AppName## Alert On Repeated Event ##EventID## Monitor</Name>
+          <Description />
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor" SubElementID="GoodCondition">
+          <Name>Healthy Event Raised</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor" SubElementID="BadCondition">
+          <Name>Repeated Event Raised</Name>
+        </DisplayString>
+        <DisplayString ElementID="##CompanyID##.##AppName##.RepeatedEvent.##EventID##.Alert.Monitor.AlertMessage">
+          <Name>##CompanyID## ##AppName## Alert On Repeated Event ##EventID## Monitor Alert</Name>
+          <Description>Repeated event was detected.
+
+Event ID:  {0}
+Event Source:  {1}
+Event Description: {2}</Description>
+        </DisplayString>
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPackFragment>
