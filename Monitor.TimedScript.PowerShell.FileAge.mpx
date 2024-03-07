@@ -336,12 +336,12 @@ $momapi.LogScriptEvent($ScriptName,$EventID,0,"`n Script Completed. `n Script Ru
 					<OnDemandDetections>
 						<OnDemandDetection MonitorTypeStateID="GoodCondition">
 							<Node ID="GoodConditionFilter">
-								<Node ID="DS" />
+								<Node ID="PA" />
 							</Node>
 						</OnDemandDetection>
 						<OnDemandDetection MonitorTypeStateID="BadCondition">
 							<Node ID="BadConditionFilter">
-								<Node ID="DS" />
+								<Node ID="PA" />
 							</Node>
 						</OnDemandDetection>
 					</OnDemandDetections>
